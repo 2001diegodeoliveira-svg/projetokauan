@@ -258,6 +258,24 @@
   .evo-card .bar { height: 10px; }
   .admin-records { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 
+  /* Ícones Lucide */
+  .lucide { width: 1.05em; height: 1.05em; vertical-align: -0.15em; }
+  .card h3 .lucide { color: inherit; animation: floatIcon 3.2s ease-in-out infinite; }
+  .btn-watch .lucide { animation: pulseIcon 2s ease-in-out infinite; }
+  .btn-primary .lucide { width: 1em; height: 1em; }
+  .wobble-card:hover h3 .lucide { animation-duration: 0.5s; }
+  @keyframes floatIcon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  @keyframes pulseIcon {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.22); opacity: 0.75; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card h3 .lucide, .btn-watch .lucide { animation: none; }
+  }
+
   /* ---------- TABLET ---------- */
   @media (max-width: 820px) {
     .cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
@@ -422,8 +440,8 @@
       <h2>O que estudar</h2>
       <p class="sub">Conteúdos essenciais cobrados em provas de nível básico do 9º ano (BNCC).</p>
       <div class="cards">
-        <div class="card port">
-          <h3><span>📖</span>Língua Portuguesa</h3>
+        <div class="card port wobble-card">
+          <h3><span><i data-lucide="book-open"></i></span>Língua Portuguesa</h3>
           <ul>
             <li>Interpretação e compreensão de textos</li>
             <li>Gêneros textuais (notícia, artigo, tirinha, anúncio)</li>
@@ -433,8 +451,8 @@
             <li>Coesão e coerência, produção de texto simples</li>
           </ul>
         </div>
-        <div class="card mat">
-          <h3><span>➗</span>Matemática</h3>
+        <div class="card mat wobble-card">
+          <h3><span><i data-lucide="calculator"></i></span>Matemática</h3>
           <ul>
             <li>Números reais, potenciação e radiciação</li>
             <li>Equações e sistemas de equações</li>
@@ -444,8 +462,8 @@
             <li>Porcentagem e regra de três</li>
           </ul>
         </div>
-        <div class="card cie">
-          <h3><span>🔬</span>Ciências</h3>
+        <div class="card cie wobble-card">
+          <h3><span><i data-lucide="flask-conical"></i></span>Ciências</h3>
           <ul>
             <li>Matéria, átomos e tabela periódica (básico)</li>
             <li>Ligações químicas e funções inorgânicas</li>
@@ -455,8 +473,8 @@
             <li>Genética, hereditariedade e sistemas do corpo</li>
           </ul>
         </div>
-        <div class="card geo">
-          <h3><span>🌍</span>Geografia</h3>
+        <div class="card geo wobble-card">
+          <h3><span><i data-lucide="globe"></i></span>Geografia</h3>
           <ul>
             <li>Globalização e blocos econômicos</li>
             <li>Geopolítica mundial e conflitos atuais</li>
@@ -465,8 +483,8 @@
             <li>População, migração e desigualdades</li>
           </ul>
         </div>
-        <div class="card hist">
-          <h3><span>🏛️</span>História</h3>
+        <div class="card hist wobble-card">
+          <h3><span><i data-lucide="landmark"></i></span>História</h3>
           <ul>
             <li>Era Napoleônica e Revolução Industrial</li>
             <li>Imperialismo e crise do capitalismo</li>
@@ -475,8 +493,8 @@
             <li>Redemocratização e Nova República</li>
           </ul>
         </div>
-        <div class="card ing">
-          <h3><span>🇬🇧</span>Inglês</h3>
+        <div class="card ing wobble-card">
+          <h3><span><i data-lucide="languages"></i></span>Inglês</h3>
           <ul>
             <li>Leitura e interpretação de textos simples</li>
             <li>Vocabulário do cotidiano</li>
@@ -573,10 +591,10 @@
         <img id="photoPreview" class="photo-preview" alt="Prévia da foto" hidden>
       </div>
       <div class="modal-actions">
-        <button id="btnSnap" class="btn" disabled>📷 Tirar foto</button>
-        <button id="btnRetake" class="btn" hidden>🔄 Refazer</button>
-        <button id="btnFlip" class="btn" hidden>🔁 Trocar câmera</button>
-        <label class="btn btn-ghost" for="fileInput">📁 Enviar arquivo</label>
+        <button id="btnSnap" class="btn" disabled><i data-lucide="camera"></i> Tirar foto</button>
+        <button id="btnRetake" class="btn" hidden><i data-lucide="rotate-ccw"></i> Refazer</button>
+        <button id="btnFlip" class="btn" hidden><i data-lucide="arrow-left-right"></i> Trocar câmera</button>
+        <label class="btn btn-ghost" for="fileInput"><i data-lucide="folder-open"></i> Enviar arquivo</label>
         <input id="fileInput" type="file" accept="image/*" hidden />
       </div>
       <input type="text" id="noteInput" maxlength="200" placeholder="Anotação (opcional)" />
@@ -587,6 +605,7 @@
 
 </div>
 
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
 (function () {
   const TOKEN_KEY = "cron9ano_token";
@@ -610,6 +629,12 @@
   let watchTaskId = null;
 
   const $ = (id) => document.getElementById(id);
+
+  function refreshIcons() {
+    if (window.lucide && typeof lucide.createIcons === "function") {
+      try { lucide.createIcons(); } catch (e) { /* ignorar */ }
+    }
+  }
 
   function showBanner(text, type) {
     const b = $("banner");
@@ -808,6 +833,7 @@
     el.querySelectorAll("[data-student]").forEach((btn) => {
       btn.addEventListener("click", () => loadAdminStudent(Number(btn.dataset.student)));
     });
+    refreshIcons();
   }
 
   async function loadAdminStudent(id) {
@@ -840,6 +866,7 @@
         <div class="bar"><div style="width:${pct}%"></div></div>
       </div>`;
     }).join("");
+    refreshIcons();
   }
 
   function renderAdminRecords(sessions) {
@@ -909,7 +936,7 @@
           <td class="subj"><span class="tag ${t.tag}">${t.subject}</span></td>
           <td class="topic">${escapeHtml(t.topic)}</td>
           <td class="actions">
-            <button class="btn-watch" data-id="${t.id}" data-video="${escapeAttr(videoUrl)}">▶ Assistir aula</button>
+            <button class="btn-watch" data-id="${t.id}" data-video="${escapeAttr(videoUrl)}"><i data-lucide="play"></i> Assistir aula</button>
           </td>
           <td class="check"><input type="checkbox" data-id="${t.id}" ${t.done ? "checked" : ""} /></td>
         </tr>`;
@@ -931,6 +958,7 @@
     const pct = progress ? progress.percent : 0;
     $("progress").style.width = pct + "%";
     $("pct").textContent = pct + "%";
+    refreshIcons();
 
     document.querySelectorAll("#weeks .btn-watch").forEach((btn) => {
       btn.addEventListener("click", () => openWatchModal(Number(btn.dataset.id), btn.dataset.video));
@@ -978,6 +1006,7 @@
         </div>
       </div>
     `).join("");
+    refreshIcons();
   }
 
   function formatDate(dt) {
@@ -1219,6 +1248,7 @@
   });
 
   /* ---------- INIT ---------- */
+  refreshIcons();
   if (adminToken) { showAdmin(); }
   else if (token) { loadApp(); }
   else { $("authView").hidden = false; }
