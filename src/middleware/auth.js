@@ -9,11 +9,17 @@ export function signToken(user) {
 
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  const token =
+    header && header.startsWith("Bearer ")
+      ? header.slice(7)
+      : typeof req.query.token === "string"
+        ? req.query.token
+        : "";
+  if (!token) {
     return res.status(401).json({ error: "Token não informado" });
   }
   try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET);
     req.user = { id: payload.id, email: payload.email };
     next();
   } catch {

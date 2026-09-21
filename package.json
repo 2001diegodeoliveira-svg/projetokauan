@@ -3,14 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Backend do cronograma de estudos do 9º ano - Express + SQLite",
-  "main": "server.js",
+  "description": "Backend do cronograma de estudos do 9º ano - Express + Postgres/Neon",
+  "main": "local-server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node local-server.js",
+    "dev": "node --watch local-server.js"
   },
   "engines": {
-    "node": ">=23.4.0"
+    "node": "22.x"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

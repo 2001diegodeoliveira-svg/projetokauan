@@ -1,7 +1,7 @@
-# Backend — Cronograma de Estudos 9º Ano
+# Cronograma de Estudos 9º Ano
 
 Sistema completo (front + API REST) de cronograma de estudos para o 9º ano.
-Node.js + Express + SQLite. Inclui:
+Node.js + Express + PostgreSQL (Neon), pronto para rodar local e na **Vercel**. Inclui:
 
 - Login por aluno (JWT + senha criptografada)
 - 40 tarefas padrão do cronograma (8 semanas), cada uma com **link de aula no YouTube**
@@ -10,12 +10,21 @@ Node.js + Express + SQLite. Inclui:
 - Termo de consentimento de imagem (LGPD) no cadastro
 
 > Atenção (LGPD): o sistema guarda fotos de alunos (menores). Conteúdo sensível.
-> Mantenha o banco/`data/photos` protegidos, use `JWT_SECRET` forte em produção e
-> avalie a política de guarda/exclusão das imagens com a escola.
+> Mantenha o banco protegido, use `JWT_SECRET` forte em produção e avalie a
+> política de guarda/exclusão das imagens com a escola.
 
 ## Requisitos
 
-- Node.js 23.4+ (usa o módulo nativo `node:sqlite`)
+- Node.js 18+ (na Vercel usa Node 22)
+- Um banco PostgreSQL — recomendado o [Neon](https://neon.tech) (plano gratuito)
+
+## Configuração (.env)
+
+Copie `.env.example` para `.env` e preencha:
+
+- `DATABASE_URL` → connection string do Neon (use a **Pooled connection**, com `-pooler`)
+- `JWT_SECRET` → segredo dos tokens (use um valor forte em produção)
+- `PORT` → porta local (padrão: `3000`)
 
 ## Como rodar
 
@@ -24,41 +33,65 @@ npm install
 npm start        # ou: npm run dev (reinicia ao salvar)
 ```
 
-Abra `http://localhost:3000`. O banco e as fotos ficam em `data/` (criado na 1ª execução).
+Abra `http://localhost:3000`. As tabelas (`users`, `tasks`, `sessions`) são criadas
+automaticamente na primeira execução. As **fotos ficam no próprio banco** (coluna
+`BYTEA`), por isso o sistema funciona igual em disco ou em ambiente serverless.
 
-Configuração por variáveis de ambiente (`.env`):
+## Deploy na Vercel
 
-- `PORT` → porta do servidor (padrão: `3000`)
-- `JWT_SECRET` → segredo dos tokens (padrão: valor de desenvolvimento)
+O projeto usa o **suporte a Express da Vercel (zero-config)**: a Vercel detecta o app
+em `src/app.js` (export default) e o transforma em uma única função. Não é preciso
+`api/` nem `vercel.json`.
 
-## Acesso pelo celular (mobile)
+- `src/app.js` → app Express (export default) detectado pela Vercel
+- `public/index.html` → front-end servido como arquivo estático pelo CDN
+  (na Vercel, `express.static()` é ignorado; estáticos só valem em `public/**`)
+- Fotos gravadas no Postgres (não em disco, que é efêmero na Vercel)
 
-O front-end é responsivo (celular, tablet e desktop). Para abrir no celular:
+Passos:
+
+1. Crie o banco no Neon e copie a **Pooled connection string**.
+2. Na Vercel, importe o repositório do GitHub (ou rode `npx vercel`).
+   - **Framework Preset:** deixe em **Other** (a detecção de Express já acontece).
+   - **Root Directory:** a raiz do repositório.
+3. Em **Settings → Environment Variables**, defina (para Production e Preview):
+   - `DATABASE_URL` = connection string do Neon
+   - `JWT_SECRET` = um segredo forte
+4. Faça o deploy. Teste `https://SEU-PROJETO.vercel.app/api/health` (deve retornar `{"status":"ok","database":"up"}`).
+
+Observações da Vercel:
+
+- **Importante:** não use `app.listen()` no arquivo detectado (só no `local-server.js`,
+  que roda em desenvolvimento). Use `export default app`.
+- Limite de corpo das funções serverless: ~4,5 MB. O upload de foto é limitado a **4 MB**
+  (o front reduz a imagem automaticamente antes de enviar).
+- A região da função deve ficar próxima do banco Neon para menor latência
+  (ex.: Neon em `us-east-1` → região Vercel `iad1`).
+- Se aparecer `FUNCTION_INVOCATION_FAILED`, veja os **Runtime Logs** da função na
+  Vercel; normalmente é variável de ambiente faltando ou erro de importação.
+
+## Acesso pelo celular (local)
 
 1. Descubra o IP do computador na rede: `ipconfig` (ex.: `192.168.0.10`).
 2. No celular (mesma rede Wi-Fi), acesse `http://192.168.0.10:3000`.
-3. Se o firewall bloquear, libere a porta 3000 para a rede privada.
 
 Observação sobre a câmera: navegadores só liberam a câmera em `localhost` ou em
-conexões **HTTPS**. Acessando pelo IP da rede via `http://`, o botão da câmera
-pode não funcionar — nesse caso use **"Enviar arquivo"** (tira a foto pela câmera
-do celular e envia). Para usar a câmera ao vivo fora do localhost, sirva o app
-por HTTPS (ex.: proxy reverso com certificado, ou túnel tipo ngrok/Cloudflare).
+conexões **HTTPS** (na Vercel é HTTPS, então funciona). Acessando pelo IP via
+`http://`, use **"Enviar arquivo"**. Para câmera ao vivo fora do localhost, sirva
+o app por HTTPS.
 
 ### Registro por foto (câmera)
 
 Ao clicar em **▶ Assistir aula**, o app abre o modal e **pede permissão da câmera**
 (`getUserMedia`). O fluxo:
 
-1. Autorize a câmera no aviso do navegador (se negar, dá para reautorizar no cadeado).
-2. O vídeo aparece ao vivo; clique em **📷 Tirar foto**.
-3. Use **🔄 Refazer** para tirar outra e **🔁 Trocar câmera** (frontal/traseira)
-   quando houver mais de uma câmera.
-4. Confirme para enviar a foto, marcar o tópico como concluído e abrir a aula.
+1. Autorize a câmera no aviso do navegador (se negar, reautorize no cadeado).
+2. Vídeo ao vivo → clique em **📷 Tirar foto**.
+3. **🔄 Refazer** para outra foto e **🔁 Trocar câmera** (frontal/traseira).
+4. Confirme para enviar, marcar o tópico como concluído e abrir a aula.
 
-Sem câmera, o botão **📁 Enviar arquivo** faz o mesmo registro a partir de uma imagem.
-
-
+Sem câmera, o botão **📁 Enviar arquivo** faz o mesmo (a imagem é redimensionada
+no navegador antes do envio).
 
 ## Rotas da API
 
@@ -85,9 +118,9 @@ Sem câmera, o botão **📁 Enviar arquivo** faz o mesmo registro a partir de u
 
 | Método | Rota                           | Descrição |
 | ------ | ------------------------------ | --------- |
-| POST   | `/api/sessions/tasks/:id/watch`| **Multipart** com `photo` (≤5MB, JPG/PNG/WebP). Marca a tarefa concluída e registra a sessão. |
+| POST   | `/api/sessions/tasks/:id/watch`| **Multipart** com `photo` (≤4 MB, JPG/PNG/WebP). Marca a tarefa concluída e registra a sessão. |
 | GET    | `/api/sessions`                | Histórico de participação (foto, disciplina, data) |
-| GET    | `/uploads/photos/:arquivo`     | Foto registrada (servida estaticamente) |
+| GET    | `/api/sessions/photo/:arquivo` | Foto registrada (lida do banco; aceita token via header ou `?token=`) |
 
 O `video_url` das 40 tarefas padrão é gerado como busca no YouTube:
 `https://www.youtube.com/results?search_query=<disciplina> <tópico> 9 ano`.
@@ -105,17 +138,19 @@ Professores podem trocar por vídeo específico via `PATCH /api/tasks/:id` com `
 
 ```
 projetokauan/
-├── server.js                 # App Express, rotas, uploads estáticos e multer errors
-├── cronograma-9ano.html      # Front-end (autenticação, cronograma, câmera, histórico)
+├── public/
+│   └── index.html            # Front-end (autenticação, cronograma, câmera, histórico)
 ├── src/
-│   ├── config.js             # PORT e JWT_SECRET
-│   ├── database.js           # SQLite (users, tasks, sessions), migrações e consultas
-│   ├── middleware/auth.js    # Token JWT
+│   ├── app.js                # App Express (export default) — entrada detectada pela Vercel
+│   ├── config.js             # PORT, JWT_SECRET, DATABASE_URL
+│   ├── database.js           # Postgres/Neon (users, tasks, sessions) e consultas
+│   ├── middleware/auth.js    # Token JWT (header ou ?token=)
 │   ├── routes/
 │   │   ├── authRoutes.js     # register / login / me (com consentimento LGPD)
 │   │   ├── taskRoutes.js     # CRUD de tarefas + progresso
-│   │   └── sessionRoutes.js  # upload de foto + histórico (multer)
+│   │   └── sessionRoutes.js  # upload de foto (memória) + histórico + imagem
 │   └── data/
 │       └── defaultTasks.js   # 40 tarefas padrão com links do YouTube
-└── data/                     # cronograma.db e photos/ (gerados na execução)
+├── local-server.js           # Servidor local (app.listen) — só para desenvolvimento
+└── .env                      # DATABASE_URL e JWT_SECRET (não versionado)
 ```

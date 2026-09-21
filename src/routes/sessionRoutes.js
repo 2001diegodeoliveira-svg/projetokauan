@@ -1,8 +1,5 @@
 import { Router } from "express";
 import multer from "multer";
-import path from "node:path";
-import { mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
@@ -10,24 +7,15 @@ import {
   hasPhotoConsent,
   markTaskDone,
   createSession,
-  listSessions
+  listSessions,
+  getPhotoByPath
 } from "../database.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const photoDir = path.join(__dirname, "..", "..", "data", "photos");
-mkdirSync(photoDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, photoDir),
-  filename: (_req, file, cb) => {
-    const ext = (path.extname(file.originalname) || ".jpg").toLowerCase();
-    cb(null, `foto_${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`);
-  }
-});
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PHOTO_BYTES },
   fileFilter: (_req, file, cb) => {
     const ok = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
     if (!ok) return cb(new Error("A foto deve ser JPEG, PNG ou WebP"));
@@ -52,11 +40,10 @@ router.post("/tasks/:id/watch", requireAuth, upload.single("photo"), asyncHandle
   if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
 
   await markTaskDone(id, req.user.id);
-  const photoPath = `/uploads/photos/${req.file.filename}`;
   const session = await createSession(
     req.user.id,
     id,
-    photoPath,
+    { data: req.file.buffer, mime: req.file.mimetype },
     task.video_url,
     typeof req.body.note === "string" ? req.body.note.trim() : undefined
   );
@@ -72,4 +59,16 @@ router.get("/", requireAuth, asyncHandler(async (req, res) => {
   return res.json({ sessions: await listSessions(req.user.id) });
 }));
 
+router.get("/photo/:file", requireAuth, asyncHandler(async (req, res) => {
+  const photoPath = `/api/sessions/photo/${req.params.file}`;
+  const photo = await getPhotoByPath(photoPath);
+  if (!photo || !photo.photo_data) {
+    return res.status(404).json({ error: "Foto não encontrada" });
+  }
+  res.set("Content-Type", photo.photo_mime || "image/jpeg");
+  res.set("Cache-Control", "private, max-age=86400");
+  return res.send(photo.photo_data);
+}));
+
+export { MAX_PHOTO_BYTES };
 export default router;

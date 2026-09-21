@@ -1,23 +1,33 @@
-import "dotenv/config";
 import express from "express";
 import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PORT, DATABASE_URL } from "./src/config.js";
-import { initDb, pool } from "./src/database.js";
-import authRoutes from "./src/routes/authRoutes.js";
-import taskRoutes from "./src/routes/taskRoutes.js";
-import sessionRoutes from "./src/routes/sessionRoutes.js";
+import { initDb, pool } from "./database.js";
+import authRoutes from "./routes/authRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
+import sessionRoutes from "./routes/sessionRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.join(__dirname, "..", "public");
+
 const app = express();
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/uploads/photos", express.static(path.join(__dirname, "data", "photos")));
+app.use(express.static(publicDir));
+
+let dbReady = null;
+export function ensureDb() {
+  if (!dbReady) {
+    dbReady = initDb().catch((err) => {
+      dbReady = null;
+      throw err;
+    });
+  }
+  return dbReady;
+}
 
 app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "cronograma-9ano.html"));
+  res.sendFile(path.join(publicDir, "index.html"));
 });
 
 app.get("/api/health", async (_req, res) => {
@@ -27,6 +37,10 @@ app.get("/api/health", async (_req, res) => {
   } catch {
     res.status(503).json({ status: "degraded", database: "down" });
   }
+});
+
+app.use((_req, _res, next) => {
+  ensureDb().then(() => next()).catch(next);
 });
 
 app.use("/api/auth", authRoutes);
@@ -41,7 +55,7 @@ app.use((_req, res) => {
 app.use((err, _req, res, _next) => {
   if (err instanceof multer.MulterError) {
     const message = err.code === "LIMIT_FILE_SIZE"
-      ? "A foto deve ter no máximo 5 MB"
+      ? "A foto deve ter no máximo 4 MB"
       : "Erro no envio da foto";
     return res.status(400).json({ error: message });
   }
@@ -52,19 +66,4 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ error: "Erro interno do servidor" });
 });
 
-if (!DATABASE_URL) {
-  console.error("DATABASE_URL não definida. Configure o .env com a connection string do Neon.");
-  process.exit(1);
-}
-
-try {
-  await initDb();
-  console.log("Banco de dados (Neon/Postgres) conectado e tabelas verificadas.");
-} catch (err) {
-  console.error("Falha ao conectar/inicializar o banco:", err.message);
-  process.exit(1);
-}
-
-app.listen(PORT, () => {
-  console.log(`API rodando em http://localhost:${PORT}`);
-});
+export default app;

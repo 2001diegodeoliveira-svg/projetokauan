@@ -12,6 +12,10 @@ export const pool = new Pool({
   max: 5
 });
 
+pool.on("error", (err) => {
+  console.error("Erro inesperado no pool do Postgres:", err.message);
+});
+
 export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -43,12 +47,17 @@ export async function initDb() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       photo_path TEXT NOT NULL,
+      photo_data BYTEA,
+      photo_mime TEXT,
       video_url TEXT,
       note TEXT,
       watched_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS photo_data BYTEA;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS photo_mime TEXT;
   `);
 }
 
@@ -172,13 +181,29 @@ export async function markTaskDone(id, userId) {
   await pool.query("UPDATE tasks SET done = TRUE WHERE id = $1 AND user_id = $2", [id, userId]);
 }
 
-export async function createSession(userId, taskId, photoPath, videoUrl, note) {
+function mimeExt(mime) {
+  if (mime === "image/png") return ".png";
+  if (mime === "image/webp") return ".webp";
+  return ".jpg";
+}
+
+export async function createSession(userId, taskId, photo, videoUrl, note) {
+  const filename = `foto_${Date.now()}_${Math.round(Math.random() * 1e9)}${mimeExt(photo.mime)}`;
+  const photoPath = `/api/sessions/photo/${filename}`;
   const { rows } = await pool.query(
-    `INSERT INTO sessions (user_id, task_id, photo_path, video_url, note)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [userId, taskId, photoPath, videoUrl ?? null, note ?? null]
+    `INSERT INTO sessions (user_id, task_id, photo_path, photo_data, photo_mime, video_url, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [userId, taskId, photoPath, photo.data, photo.mime, videoUrl ?? null, note ?? null]
   );
   return getSessionById(rows[0].id, userId);
+}
+
+export async function getPhotoByPath(photoPath) {
+  const { rows } = await pool.query(
+    "SELECT photo_mime, photo_data FROM sessions WHERE photo_path = $1",
+    [photoPath]
+  );
+  return rows[0] || null;
 }
 
 export async function getSessionById(id, userId) {

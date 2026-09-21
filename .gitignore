@@ -4,4 +4,5 @@ data/*.db-journal
 data/photos/
 .server.pid
 .env
+.vercel
 npm-debug.log*

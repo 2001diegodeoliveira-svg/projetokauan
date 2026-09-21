@@ -710,7 +710,7 @@
     }
     el.innerHTML = sessions.map((s) => `
       <div class="history-card">
-        <img src="${escapeAttr(s.photo_path)}" alt="Foto de ${escapeAttr(user ? user.name : "")}" loading="lazy" />
+        <img src="${escapeAttr(s.photo_path)}?token=${encodeURIComponent(token)}" alt="Foto de ${escapeAttr(user ? user.name : "")}" loading="lazy" />
         <div class="info">
           <b>${escapeHtml(s.subject)} · ${escapeHtml(s.day)}</b>
           <span>${formatDate(s.watched_at)}</span>
@@ -882,21 +882,44 @@
     startCam();
   });
 
-  $("fileInput").addEventListener("change", () => {
+  const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
+  async function shrinkImage(file, maxDim = 1600, quality = 0.85) {
+    try {
+      if (file.type === "image/webp") return file;
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+      if (scale >= 1 && file.size <= MAX_PHOTO_BYTES) return file;
+      const w = Math.max(1, Math.round(bmp.width * scale));
+      const h = Math.max(1, Math.round(bmp.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      return blob && blob.size < file.size ? blob : file;
+    } catch {
+      return file;
+    }
+  }
+
+  $("fileInput").addEventListener("change", async () => {
     const file = $("fileInput").files[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       $("watchMsg").textContent = "O arquivo deve ser uma imagem (JPG, PNG ou WebP).";
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      $("watchMsg").textContent = "A foto deve ter no máximo 5 MB.";
+    $("watchMsg").textContent = "Preparando imagem...";
+    const img = await shrinkImage(file);
+    if (img.size > MAX_PHOTO_BYTES) {
+      $("watchMsg").textContent = "A foto deve ter no máximo 4 MB.";
       return;
     }
-    photoBlob = file;
+    photoBlob = img;
     camVideo.hidden = true;
     snapCanvas.hidden = true;
-    photoPreview.src = URL.createObjectURL(file);
+    photoPreview.src = URL.createObjectURL(img);
     photoPreview.hidden = false;
     $("btnConfirmWatch").disabled = false;
     $("btnSnap").hidden = true;
@@ -911,7 +934,8 @@
     $("watchMsg").textContent = "Enviando foto...";
     try {
       const fd = new FormData();
-      fd.append("photo", photoBlob, "foto.jpg");
+      const ext = photoBlob.type === "image/png" ? "png" : photoBlob.type === "image/webp" ? "webp" : "jpg";
+      fd.append("photo", photoBlob, `foto.${ext}`);
       const note = $("noteInput").value.trim();
       if (note) fd.append("note", note);
       const data = await api(`/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
