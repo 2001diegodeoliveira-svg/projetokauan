@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Cronograma de Estudos · 9º Ano do Ensino Fundamental</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --green: #34d399;
+    --purple: #c084fc;
+    --red: #f87171;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px 60px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 32px; }
+  header h1 { font-size: 2rem; color: #fff; margin-bottom: 8px; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); max-width: 640px; margin: 0 auto; line-height: 1.6; }
+  .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+  .badge {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .badge b { color: var(--accent); }
+  .userbar {
+    display: flex; justify-content: center; align-items: center; gap: 12px;
+    margin-top: 18px; flex-wrap: wrap;
+  }
+  .userbar .name { color: #fff; font-weight: 600; }
+  section { margin-top: 40px; }
+  h2 {
+    font-size: 1.35rem;
+    color: #fff;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2::before { content: ""; width: 6px; height: 22px; background: var(--accent); border-radius: 3px; display: inline-block; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent2)); border: none; color: #0f172a; }
+  .btn-primary:hover { filter: brightness(1.1); border: none; }
+  .btn-ghost { background: transparent; }
+  .btn-danger { color: var(--red); border-color: rgba(248,113,113,.4); }
+
+  /* Autenticação */
+  .auth-wrap { display: flex; justify-content: center; padding-top: 10px; }
+  .auth-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; width: 100%; max-width: 420px;
+  }
+  .auth-tabs { display: flex; background: rgba(51,65,85,.4); border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 20px; }
+  .auth-tabs button {
+    flex: 1; background: transparent; border: none; color: var(--muted);
+    padding: 9px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.92rem;
+  }
+  .auth-tabs button.active { background: var(--accent); color: #0f172a; }
+  .auth-form label { display: block; color: var(--muted); font-size: 0.82rem; margin: 12px 0 5px; }
+  .auth-form input[type="text"], .auth-form input[type="email"], .auth-form input[type="password"] {
+    width: 100%; background: #0f172a; border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 9px; outline: none; font-size: 0.95rem;
+  }
+  .auth-form input:focus { border-color: var(--accent); }
+  .auth-form .check-line { display: flex; gap: 8px; align-items: flex-start; font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin-top: 14px; }
+  .auth-form .check-line input { margin-top: 2px; accent-color: var(--accent); }
+  .auth-msg { color: var(--red); font-size: 0.85rem; margin-top: 14px; min-height: 1em; }
+  .auth-form .btn-primary { width: 100%; margin-top: 18px; padding: 12px; }
+
+  /* Cards de conteúdo */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .card h3 { font-size: 1.02rem; margin-bottom: 10px; color: #fff; }
+  .card h3 span { margin-right: 8px; }
+  .card ul { list-style: none; }
+  .card li { font-size: 0.88rem; color: var(--muted); padding: 5px 0 5px 16px; position: relative; line-height: 1.45; }
+  .card li::before { content: "›"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+  .card.mat h3 span { color: var(--accent); }
+  .card.port h3 span { color: var(--accent2); }
+  .card.cie h3 span { color: var(--green); }
+  .card.geo h3 span { color: #fbbf24; }
+  .card.hist h3 span { color: var(--purple); }
+  .card.ing h3 span { color: #fb7185; }
+
+  /* Semanas */
+  .week { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 18px; overflow: hidden; }
+  .week-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 18px; background: rgba(56,189,248,0.08); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; gap: 8px;
+  }
+  .week-head h3 { font-size: 1.05rem; color: #fff; }
+  .week-head .focus { color: var(--muted); font-size: 0.85rem; }
+  .week-head .status { font-size: 0.8rem; color: var(--muted); }
+  .week-head .status b { color: var(--green); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; font-size: 0.9rem; border-bottom: 1px solid rgba(51,65,85,0.4); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  th { background: rgba(51,65,85,0.25); color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td.day { white-space: nowrap; color: #fff; font-weight: 600; width: 1%; }
+  td.subj { white-space: nowrap; width: 1%; }
+  td.subj .tag { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .tag.mat { background: rgba(56,189,248,.15); color: var(--accent); }
+  .tag.port { background: rgba(129,140,248,.15); color: var(--accent2); }
+  .tag.cie { background: rgba(52,211,153,.15); color: var(--green); }
+  .tag.geo { background: rgba(251,191,36,.15); color: #fbbf24; }
+  .tag.hist { background: rgba(192,132,252,.15); color: var(--purple); }
+  .tag.ing { background: rgba(251,113,133,.15); color: #fb7185; }
+  .tag.rev { background: rgba(226,232,240,.15); color: #e2e8f0; }
+  td.topic { color: var(--text); line-height: 1.5; }
+  td.actions { width: 1%; white-space: nowrap; }
+  .btn-watch {
+    background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.4);
+    color: #fb7185; padding: 7px 12px; border-radius: 9px; font-size: 0.82rem;
+    font-weight: 700; cursor: pointer; white-space: nowrap; transition: 0.15s;
+  }
+  .btn-watch:hover { background: rgba(248,113,113,.25); }
+  td.check { width: 1%; text-align: center; padding: 10px 6px; }
+  input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  tr.done td { opacity: 0.45; }
+  tr.done td.topic { text-decoration: line-through; }
+
+  .progress-bar { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-top: 40px; }
+  .progress-bar .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .progress-bar h3 { color: #fff; font-size: 1.05rem; }
+  .progress-bar .pct { color: var(--accent); font-weight: 700; font-size: 1.05rem; }
+  .bar { height: 14px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.3s ease; border-radius: 999px; }
+
+  /* Histórico */
+  .history {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px;
+  }
+  .history-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .history-card img { width: 100%; height: 150px; object-fit: cover; display: block; background: #0f172a; }
+  .history-card .info { padding: 12px 14px; }
+  .history-card .info b { color: #fff; font-size: 0.9rem; display: block; margin-bottom: 3px; }
+  .history-card .info span { color: var(--muted); font-size: 0.78rem; }
+  .history-empty { color: var(--muted); font-size: 0.92rem; }
+
+  /* Modal vídeo/foto */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(2,6,23,0.85);
+    display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; width: 100%; max-width: 480px; max-height: 92vh; overflow: auto;
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .modal-head h3 { color: #fff; font-size: 1.1rem; }
+  .modal-head button { background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+  .modal-head button:hover { color: #fff; }
+  .modal-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5; }
+  .cam-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+  .cam-wrap video, .cam-wrap canvas, .cam-wrap img { width: 100%; max-width: 380px; border-radius: 12px; background: #0f172a; }
+  .photo-preview { display: block; }
+  .modal-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .modal input[type="text"] {
+    width: 100%; background: #0f172a; border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 9px; outline: none; font-size: 0.9rem; margin-bottom: 14px;
+  }
+  .modal input[type="text"]:focus { border-color: var(--accent); }
+  .btn-block { width: 100%; }
+  #watchMsg { color: var(--red); font-size: 0.85rem; margin-top: 10px; min-height: 1em; text-align: center; }
+
+  .tips { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .tips li { margin: 8px 0 8px 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
+  .tips b { color: #fff; }
+  .banner-err {
+    background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.4); color: var(--red);
+    padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem; text-align: center;
+  }
+  footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: 0.8rem; }
+
+  /* ---------- TABLET ---------- */
+  @media (max-width: 820px) {
+    .cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    .history { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  }
+
+  /* ---------- MOBILE ---------- */
+  @media (max-width: 640px) {
+    body {
+      padding: calc(16px + env(safe-area-inset-top)) 12px calc(40px + env(safe-area-inset-bottom));
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wrap { max-width: 100%; }
+
+    header { margin-bottom: 24px; }
+    header h1 { font-size: 1.5rem; line-height: 1.25; }
+    header p { font-size: 0.92rem; }
+    .badges { gap: 8px; margin-top: 14px; }
+    .badge { font-size: 0.78rem; padding: 5px 11px; }
+    .userbar { margin-top: 14px; }
+    .userbar .name { width: 100%; }
+
+    section { margin-top: 30px; }
+    h2 { font-size: 1.18rem; }
+    h2::before { height: 19px; }
+
+    /* Alvos de toque confortáveis */
+    .btn { min-height: 44px; padding: 11px 16px; font-size: 0.92rem; }
+    .btn-watch { min-height: 42px; width: 100%; padding: 10px 12px; font-size: 0.86rem; }
+    input[type="checkbox"] { width: 26px; height: 26px; }
+    input, select, textarea, button { font-size: 16px; } /* evita zoom no iOS */
+
+    /* Autenticação */
+    .auth-card { padding: 18px; max-width: 100%; }
+    .auth-form input[type="text"],
+    .auth-form input[type="email"],
+    .auth-form input[type="password"] { padding: 12px; }
+
+    /* Conteúdo */
+    .cards { grid-template-columns: 1fr; }
+    .card { padding: 14px 16px; }
+
+    /* Semanas em formato de cartão (sem tabela) */
+    table, thead, tbody, tr, td { display: block; width: 100%; }
+    thead { display: none; }
+    .week { margin-bottom: 14px; }
+    .week-head { flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; }
+    .week-head h3 { font-size: 1rem; }
+    .week-head .focus { font-size: 0.8rem; }
+    tr {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 3px 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(51,65,85,.4);
+    }
+    tr:last-child { border-bottom: none; }
+    td { border: none !important; padding: 0; }
+    td.day { grid-column: 1; grid-row: 1; font-size: 0.82rem; align-self: center; }
+    td.check { grid-column: 2; grid-row: 1; align-self: center; }
+    td.subj { grid-column: 1 / 3; grid-row: 2; margin-top: 2px; }
+    td.topic { grid-column: 1 / 3; grid-row: 3; margin-top: 6px; font-size: 0.92rem; }
+    td.actions { grid-column: 1 / 3; grid-row: 4; margin-top: 10px; }
+
+    /* Progresso */
+    .progress-bar { margin-top: 30px; padding: 16px; }
+    .progress-bar h3 { font-size: 1rem; }
+
+    /* Histórico */
+    .history { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .history-card img { height: 130px; }
+    .history-card .info { padding: 10px; }
+    .history-card .info b { font-size: 0.85rem; }
+
+    /* Modal em tela cheia */
+    .overlay { padding: 0; align-items: flex-end; }
+    .modal {
+      max-width: 100%;
+      width: 100%;
+      max-height: 94vh;
+      border-radius: 18px 18px 0 0;
+      padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    }
+    .cam-wrap video, .cam-wrap canvas, .cam-wrap img { max-width: 100%; }
+    .modal-actions { gap: 8px; }
+    .modal-actions .btn { flex: 1 1 45%; }
+
+    footer { margin-top: 30px; }
+  }
+
+  @media (max-width: 360px) {
+    .history { grid-template-columns: 1fr; }
+    .modal-actions .btn { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Cronograma de Estudos <span>· 9º Ano</span></h1>
+    <p>Plano de <b>2 meses (8 semanas)</b> com link de aula no YouTube em cada tópico. Para cada aula, é pedida uma <b>foto do aluno</b>, que fica registrada no histórico de participação.</p>
+    <div class="badges">
+      <span class="badge"><b>Dias:</b> segunda a sexta</span>
+      <span class="badge"><b>Tempo:</b> ~1h30 por dia</span>
+      <span class="badge"><b>Segurança:</b> foto exigida para registrar a aula</span>
+    </div>
+    <div class="userbar" id="userbar" hidden>
+      <span class="name" id="userName"></span>
+      <button class="btn btn-danger" id="btnLogout">Sair</button>
+    </div>
+  </header>
+
+  <div id="banner" hidden></div>
+
+  <!-- LOGIN / CADASTRO -->
+  <section id="authView">
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button id="tabLogin" class="active">Entrar</button>
+          <button id="tabRegister">Cadastrar</button>
+        </div>
+        <form id="loginForm" class="auth-form">
+          <label>E-mail</label>
+          <input type="email" id="loginEmail" required autocomplete="email" />
+          <label>Senha</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
+          <button type="submit" class="btn btn-primary">Entrar</button>
+        </form>
+        <form id="registerForm" class="auth-form" hidden>
+          <label>Nome do aluno</label>
+          <input type="text" id="regName" required autocomplete="name" />
+          <label>E-mail</label>
+          <input type="email" id="regEmail" required autocomplete="email" />
+          <label>Senha (mínimo 6 caracteres)</label>
+          <input type="password" id="regPassword" required minlength="6" autocomplete="new-password" />
+          <label class="check-line">
+            <input type="checkbox" id="regConsent" required />
+            <span>Autorizo o registro da minha imagem para compor o histórico de participação nas aulas (previsto na LGPD). Sem esta autorização não é possível criar a conta.</span>
+          </label>
+          <button type="submit" class="btn btn-primary">Criar conta</button>
+        </form>
+        <p class="auth-msg" id="authMsg"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <div id="appView" hidden>
+
+    <section>
+      <h2>O que estudar</h2>
+      <p class="sub">Conteúdos essenciais cobrados em provas de nível básico do 9º ano (BNCC).</p>
+      <div class="cards">
+        <div class="card port">
+          <h3><span>📖</span>Língua Portuguesa</h3>
+          <ul>
+            <li>Interpretação e compreensão de textos</li>
+            <li>Gêneros textuais (notícia, artigo, tirinha, anúncio)</li>
+            <li>Classes de palavras e figuras de linguagem</li>
+            <li>Orações coordenadas e subordinadas</li>
+            <li>Concordância verbal e nominal, crase e regência</li>
+            <li>Coesão e coerência, produção de texto simples</li>
+          </ul>
+        </div>
+        <div class="card mat">
+          <h3><span>➗</span>Matemática</h3>
+          <ul>
+            <li>Números reais, potenciação e radiciação</li>
+            <li>Equações e sistemas de equações</li>
+            <li>Funções do 1º e 2º grau (básico)</li>
+            <li>Teorema de Pitágoras e semelhança de triângulos</li>
+            <li>Estatística e probabilidade (média, gráficos, chance)</li>
+            <li>Porcentagem e regra de três</li>
+          </ul>
+        </div>
+        <div class="card cie">
+          <h3><span>🔬</span>Ciências</h3>
+          <ul>
+            <li>Matéria, átomos e tabela periódica (básico)</li>
+            <li>Ligações químicas e funções inorgânicas</li>
+            <li>Movimento, força e Leis de Newton</li>
+            <li>Energia e suas transformações</li>
+            <li>Ondas, som e luz</li>
+            <li>Genética, hereditariedade e sistemas do corpo</li>
+          </ul>
+        </div>
+        <div class="card geo">
+          <h3><span>🌍</span>Geografia</h3>
+          <ul>
+            <li>Globalização e blocos econômicos</li>
+            <li>Geopolítica mundial e conflitos atuais</li>
+            <li>Europa, Ásia, Oceania e Antártida (físico e humano)</li>
+            <li>Regionalização do mundo</li>
+            <li>População, migração e desigualdades</li>
+          </ul>
+        </div>
+        <div class="card hist">
+          <h3><span>🏛️</span>História</h3>
+          <ul>
+            <li>Era Napoleônica e Revolução Industrial</li>
+            <li>Imperialismo e crise do capitalismo</li>
+            <li>1ª e 2ª Guerra Mundial, Guerra Fria</li>
+            <li>República no Brasil: de Vargas aos dias atuais</li>
+            <li>Redemocratização e Nova República</li>
+          </ul>
+        </div>
+        <div class="card ing">
+          <h3><span>🇬🇧</span>Inglês</h3>
+          <ul>
+            <li>Leitura e interpretação de textos simples</li>
+            <li>Vocabulário do cotidiano</li>
+            <li>Present simple, past simple e future</li>
+            <li>Comparativos e superlativos</li>
+            <li>Verbos modais e conectores básicos</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cronograma das 8 semanas</h2>
+      <p class="sub">Clique em <b>Assistir aula</b> para tirar a foto e abrir a aula no YouTube. O tópico fica marcado como concluído e entra no histórico.</p>
+      <div id="weeks"></div>
+    </section>
+
+    <div class="progress-bar">
+      <div class="top">
+        <h3>Progresso geral</h3>
+        <span class="pct" id="pct">0%</span>
+      </div>
+      <div class="bar"><div id="progress"></div></div>
+    </div>
+
+    <section>
+      <h2>Histórico de participação</h2>
+      <p class="sub">Fotos registradas a cada aula assistida. As imagens são guardadas no servidor e usadas apenas para este fim.</p>
+      <div class="history" id="historyList"></div>
+    </section>
+
+    <section>
+      <h2>Dicas para render mais</h2>
+      <div class="tips">
+        <ul>
+          <li><b>Estudo ativo:</b> em vez de só ler, resolva exercícios e explique o conteúdo em voz alta.</li>
+          <li><b>Revisão espaçada:</b> revise o assunto do dia anterior antes de começar o conteúdo novo.</li>
+          <li><b>Pomodoro:</b> estude 25–30 minutos e pause 5 minutos para descansar.</li>
+          <li><b>Ambiente:</b> estude em local calmo, sem celular por perto e com água por perto.</li>
+          <li><b>Foco no erro:</b> guarde um caderno de erros e revise-o antes da prova.</li>
+          <li><b>Descanso:</b> durma bem na noite anterior. Descanso também faz parte do estudo.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>Estude um pouco todo dia. Boa prova!</footer>
+  </div>
+
+  <!-- MODAL FOTO / AULA -->
+  <div id="watchModal" class="overlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Registrar presença na aula</h3>
+        <button id="closeModal" title="Fechar">×</button>
+      </div>
+      <p class="modal-sub" id="watchTopic"></p>
+      <div class="cam-wrap">
+        <video id="camVideo" autoplay playsinline muted></video>
+        <canvas id="snapCanvas" hidden></canvas>
+        <img id="photoPreview" class="photo-preview" alt="Prévia da foto" hidden>
+      </div>
+      <div class="modal-actions">
+        <button id="btnSnap" class="btn">📷 Tirar foto</button>
+        <label class="btn btn-ghost" for="fileInput">📁 Enviar arquivo</label>
+        <input id="fileInput" type="file" accept="image/*" hidden />
+      </div>
+      <input type="text" id="noteInput" maxlength="200" placeholder="Anotação (opcional)" />
+      <button id="btnConfirmWatch" class="btn btn-primary btn-block" disabled>Confirmar e abrir a aula</button>
+      <p id="watchMsg"></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const TOKEN_KEY = "cron9ano_token";
+  const WEEK_META = {
+    s1: { title: "Semana 1 · Fundamentos", focus: "Foco: Português + Matemática (base)" },
+    s2: { title: "Semana 2 · Português e Matemática", focus: "Foco: gramática + equações" },
+    s3: { title: "Semana 3 · Ciências + Geografia", focus: "Foco: natureza e mundo atual" },
+    s4: { title: "Semana 4 · História + Inglês + Revisão do Mês", focus: "Foco: século XIX–XX e leitura em inglês" },
+    s5: { title: "Semana 5 · Matemática + Português", focus: "Foco: funções e gramática avançada" },
+    s6: { title: "Semana 6 · Física + Geografia", focus: "Foco: mundo físico e continentes" },
+    s7: { title: "Semana 7 · Biologia + História do Brasil", focus: "Foco: corpo humano e república brasileira" },
+    s8: { title: "Semana 8 · Revisão Geral e Simulados", focus: "Foco: fixar tudo + treinar prova" }
+  };
+
+  let token = localStorage.getItem(TOKEN_KEY) || "";
+  let user = null;
+  let photoBlob = null;
+  let camStream = null;
+  let watchTaskId = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  function showBanner(text, type) {
+    const b = $("banner");
+    if (!text) { b.hidden = true; return; }
+    b.hidden = false;
+    b.className = "banner-" + (type || "err");
+    b.textContent = text;
+  }
+
+  async function api(path, opts = {}) {
+    const headers = {};
+    if (token) headers.Authorization = "Bearer " + token;
+    if (opts.body && !(opts.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch("/api" + path, { ...opts, headers });
+    if (res.status === 401) { logout(false); }
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error(data.error || "Erro no servidor");
+    return data;
+  }
+
+  /* ---------- AUTH ---------- */
+  function logout(showForm = true) {
+    token = "";
+    localStorage.removeItem(TOKEN_KEY);
+    user = null;
+    $("userbar").hidden = true;
+    $("appView").hidden = true;
+    $("authView").hidden = false;
+    $("authMsg").textContent = showForm ? "Sessão encerrada." : "Sessão expirada. Entre novamente.";
+    stopCam();
+  }
+
+  $("tabLogin").addEventListener("click", () => switchTab("login"));
+  $("tabRegister").addEventListener("click", () => switchTab("register"));
+
+  function switchTab(tab) {
+    const loginTab = $("tabLogin"), regTab = $("tabRegister");
+    loginTab.classList.toggle("active", tab === "login");
+    regTab.classList.toggle("active", tab === "register");
+    $("loginForm").hidden = tab !== "login";
+    $("registerForm").hidden = tab !== "register";
+    $("authMsg").textContent = "";
+  }
+
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setAuthMsg("");
+    try {
+      const data = await api("/auth/login", {
+        method: "POST",
+        body: { email: $("loginEmail").value.trim(), password: $("loginPassword").value }
+      });
+      token = data.token;
+      localStorage.setItem(TOKEN_KEY, token);
+      $("loginPassword").value = "";
+      await loadApp();
+    } catch (err) { setAuthMsg(err.message); }
+  });
+
+  $("registerForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setAuthMsg("");
+    if (!$("regConsent").checked) {
+      setAuthMsg("Autorize o registro de imagem para criar a conta.");
+      return;
+    }
+    try {
+      const data = await api("/auth/register", {
+        method: "POST",
+        body: {
+          name: $("regName").value.trim(),
+          email: $("regEmail").value.trim(),
+          password: $("regPassword").value,
+          photoConsent: true
+        }
+      });
+      token = data.token;
+      localStorage.setItem(TOKEN_KEY, token);
+      $("registerForm").reset();
+      await loadApp();
+    } catch (err) { setAuthMsg(err.message); }
+  });
+
+  function setAuthMsg(text) { $("authMsg").textContent = text; }
+
+  $("btnLogout").addEventListener("click", () => logout(true));
+
+  /* ---------- APP ---------- */
+  async function loadApp() {
+    $("authView").hidden = true;
+    $("appView").hidden = false;
+    showBanner("");
+    try {
+      const me = await api("/auth/me");
+      user = me.user;
+      $("userbar").hidden = false;
+      $("userName").textContent = "Olá, " + user.name;
+      const tasks = await api("/tasks");
+      renderWeeks(tasks.tasks, tasks.progress, tasks.weeks);
+      const sessions = await api("/sessions");
+      renderHistory(sessions.sessions);
+    } catch (err) {
+      showBanner("Não foi possível conectar ao backend. Rode `npm start` na pasta do projeto e atualize a página.", "err");
+    }
+  }
+
+  function videoUrlFor(task, fallback) {
+    return task.video_url || fallback;
+  }
+
+  function renderWeeks(tasks, progress, weeks) {
+    const order = ["s1","s2","s3","s4","s5","s6","s7","s8"];
+    const byWeek = {};
+    tasks.forEach((t) => {
+      (byWeek[t.week] = byWeek[t.week] || []).push(t);
+    });
+    const weekKeys = Object.keys(byWeek).sort((a, b) => {
+      const ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
+    $("weeks").innerHTML = weekKeys.map((wk) => {
+      const meta = WEEK_META[wk] || { title: wk, focus: "" };
+      const st = weeks[wk] || { total: 0, done: 0 };
+      const rows = byWeek[wk].map((t) => {
+        const videoUrl = videoUrlFor(t);
+        return `<tr class="${t.done ? "done" : ""}" data-id="${t.id}">
+          <td class="day">${t.day}</td>
+          <td class="subj"><span class="tag ${t.tag}">${t.subject}</span></td>
+          <td class="topic">${escapeHtml(t.topic)}</td>
+          <td class="actions">
+            <button class="btn-watch" data-id="${t.id}" data-video="${escapeAttr(videoUrl)}">▶ Assistir aula</button>
+          </td>
+          <td class="check"><input type="checkbox" data-id="${t.id}" ${t.done ? "checked" : ""} /></td>
+        </tr>`;
+      }).join("");
+
+      return `<div class="week">
+        <div class="week-head">
+          <h3>${meta.title}</h3>
+          <span class="focus">${meta.focus}</span>
+          <span class="status" data-status="${wk}"><b>${st.done}</b>/${st.total} concluído(s)</span>
+        </div>
+        <table>
+          <thead><tr><th>Dia</th><th>Disciplina</th><th>Tópicos de estudo</th><th>Aula</th><th>Feito</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    const pct = progress ? progress.percent : 0;
+    $("progress").style.width = pct + "%";
+    $("pct").textContent = pct + "%";
+
+    document.querySelectorAll("#weeks .btn-watch").forEach((btn) => {
+      btn.addEventListener("click", () => openWatchModal(Number(btn.dataset.id), btn.dataset.video));
+    });
+    document.querySelectorAll('#weeks input[type="checkbox"]').forEach((cb) => {
+      cb.addEventListener("change", async () => {
+        const row = cb.closest("tr");
+        cb.disabled = true;
+        try {
+          const data = await api(`/tasks/${cb.dataset.id}/done`, {
+            method: "PATCH", body: { done: cb.checked }
+          });
+          row.classList.toggle("done", cb.checked);
+          updateWeekStatus(data.progress);
+        } catch (err) {
+          cb.checked = !cb.checked;
+          showBanner(err.message, "err");
+        } finally {
+          cb.disabled = false;
+        }
+      });
+    });
+  }
+
+  function updateWeekStatus(weeks) {
+    document.querySelectorAll("[data-status]").forEach((el) => {
+      const w = weeks[el.dataset.status];
+      el.innerHTML = (w) ? "<b>" + w.done + "</b>/" + w.total + " concluído(s)" : "";
+    });
+  }
+
+  function renderHistory(sessions) {
+    const el = $("historyList");
+    if (!sessions.length) {
+      el.innerHTML = '<p class="history-empty">Nenhuma aula assistida ainda. Clique em "Assistir aula" para começar.</p>';
+      return;
+    }
+    el.innerHTML = sessions.map((s) => `
+      <div class="history-card">
+        <img src="${escapeAttr(s.photo_path)}" alt="Foto de ${escapeAttr(user ? user.name : "")}" loading="lazy" />
+        <div class="info">
+          <b>${escapeHtml(s.subject)} · ${escapeHtml(s.day)}</b>
+          <span>${formatDate(s.watched_at)}</span>
+          ${s.note ? '<br><span>📝 ' + escapeHtml(s.note) + '</span>' : ""}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function formatDate(dt) {
+    if (!dt) return "";
+    const d = new Date(String(dt).replace(" ", "T"));
+    if (isNaN(d)) return dt;
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/`/g, "&#96;");
+  }
+
+  /* ---------- MODAL FOTO / AULA ---------- */
+  const modal = $("watchModal");
+  const camVideo = $("camVideo");
+  const snapCanvas = $("snapCanvas");
+  const photoPreview = $("photoPreview");
+
+  function openWatchModal(id, videoUrl) {
+    watchTaskId = id;
+    photoBlob = null;
+    photoPreview.hidden = true;
+    snapCanvas.hidden = true;
+    camVideo.hidden = false;
+    $("fileInput").value = "";
+    $("noteInput").value = "";
+    $("watchMsg").textContent = "";
+    $("btnConfirmWatch").disabled = true;
+    $("watchTopic").textContent = "Assista a aula: " + (videoUrl || "");
+    modal.hidden = false;
+    modal.dataset.video = videoUrl || "";
+    startCam();
+  }
+
+  async function startCam() {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      camVideo.srcObject = camStream;
+    } catch {
+      $("watchMsg").textContent = "Câmera indisponível. Use a opção de enviar arquivo.";
+    }
+  }
+
+  function stopCam() {
+    if (camStream) {
+      camStream.getTracks().forEach((t) => t.stop());
+      camStream = null;
+    }
+  }
+
+  $("btnSnap").addEventListener("click", () => {
+    if (!camStream) {
+      $("watchMsg").textContent = "Ative a câmera primeiro.";
+      return;
+    }
+    snapCanvas.width = camVideo.videoWidth || 640;
+    snapCanvas.height = camVideo.videoHeight || 480;
+    snapCanvas.getContext("2d").drawImage(camVideo, 0, 0);
+    snapCanvas.toBlob((blob) => {
+      if (!blob) { $("watchMsg").textContent = "Não foi possível capturar a foto."; return; }
+      photoBlob = blob;
+      camVideo.hidden = true;
+      snapCanvas.hidden = true;
+      photoPreview.src = URL.createObjectURL(blob);
+      photoPreview.hidden = false;
+      $("btnConfirmWatch").disabled = false;
+      $("watchMsg").textContent = "";
+    }, "image/jpeg", 0.85);
+  });
+
+  $("fileInput").addEventListener("change", () => {
+    const file = $("fileInput").files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      $("watchMsg").textContent = "O arquivo deve ser uma imagem (JPG, PNG ou WebP).";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      $("watchMsg").textContent = "A foto deve ter no máximo 5 MB.";
+      return;
+    }
+    photoBlob = file;
+    camVideo.hidden = true;
+    snapCanvas.hidden = true;
+    photoPreview.src = URL.createObjectURL(file);
+    photoPreview.hidden = false;
+    $("btnConfirmWatch").disabled = false;
+    $("watchMsg").textContent = "";
+  });
+
+  $("btnConfirmWatch").addEventListener("click", async () => {
+    if (!photoBlob) return;
+    const btn = $("btnConfirmWatch");
+    btn.disabled = true;
+    $("watchMsg").textContent = "Enviando foto...";
+    try {
+      const fd = new FormData();
+      fd.append("photo", photoBlob, "foto.jpg");
+      const note = $("noteInput").value.trim();
+      if (note) fd.append("note", note);
+      const data = await api(`/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
+      stopCam();
+      modal.hidden = true;
+      if (data.video_url) window.open(data.video_url, "_blank");
+      await loadApp();
+    } catch (err) {
+      $("watchMsg").textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  $("closeModal").addEventListener("click", () => {
+    stopCam();
+    modal.hidden = true;
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) { stopCam(); modal.hidden = true; }
+  });
+
+  /* ---------- INIT ---------- */
+  if (token) { loadApp(); } else { $("authView").hidden = false; }
+})();
+</script>
+</body>
+</html>

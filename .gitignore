@@ -1,0 +1,7 @@
+node_modules/
+data/*.db
+data/*.db-journal
+data/photos/
+.server.pid
+.env
+npm-debug.log*

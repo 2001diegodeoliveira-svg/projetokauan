@@ -1,0 +1,21 @@
+{
+  "name": "projetokauan-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend do cronograma de estudos do 9º ano - Express + SQLite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=23.4.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.4.0"
+  }
+}
