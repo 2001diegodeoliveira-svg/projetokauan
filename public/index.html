@@ -938,7 +938,7 @@
       fd.append("photo", photoBlob, `foto.${ext}`);
       const note = $("noteInput").value.trim();
       if (note) fd.append("note", note);
-      const data = await api(`/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
+      const data = await api(`/sessions/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
       stopCam();
       modal.hidden = true;
       if (data.video_url) window.open(data.video_url, "_blank");
