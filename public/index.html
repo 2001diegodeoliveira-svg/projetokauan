@@ -97,9 +97,16 @@
   /* Autenticação */
   .auth-wrap { display: flex; justify-content: center; padding-top: 10px; }
   .auth-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    background: url("img/login-bg.jpg") center/cover no-repeat;
+    border: 1px solid var(--border); border-radius: var(--radius);
     padding: 24px; width: 100%; max-width: 420px; box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
   }
+  .auth-card::before {
+    content: ""; position: absolute; inset: 0;
+    background: rgba(255,253,246,.88);
+  }
+  .auth-tabs, .auth-form, .auth-msg { position: relative; z-index: 1; }
   .auth-tabs { display: flex; background: rgba(220,205,170,.35); border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 20px; }
   .auth-tabs button {
     flex: 1; background: transparent; border: none; color: var(--muted);
