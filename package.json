@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Backend do cronograma de estudos do 9º ano - Express + Postgres/Neon",
-  "main": "local-server.js",
+  "main": "dev.js",
   "scripts": {
-    "start": "node local-server.js",
-    "dev": "node --watch local-server.js"
+    "start": "node dev.js",
+    "dev": "node --watch dev.js"
   },
   "engines": {
     "node": "22.x"

@@ -27,7 +27,17 @@ export function ensureDb() {
 }
 
 app.get("/", (_req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
+  res.sendFile(path.join(publicDir, "index.html"), (err) => {
+    if (err && !res.headersSent) {
+      res
+        .status(200)
+        .type("html")
+        .send(
+          '<!doctype html><meta charset="utf-8"><title>Cronograma 9º ano</title>' +
+            "<p>API online. Interface em <a href=\"/index.html\">/index.html</a>.</p>",
+        );
+    }
+  });
 });
 
 app.get("/api/health", async (_req, res) => {

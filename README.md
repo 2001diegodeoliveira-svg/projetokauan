@@ -40,19 +40,21 @@ automaticamente na primeira execução. As **fotos ficam no próprio banco** (co
 ## Deploy na Vercel
 
 O projeto usa o **suporte a Express da Vercel (zero-config)**: a Vercel detecta o app
-em `src/app.js` (export default) e o transforma em uma única função. Não é preciso
-`api/` nem `vercel.json`.
+em `src/app.js` (export default) e o transforma em uma única função. Não é preciso a
+pasta `api/`.
 
 - `src/app.js` → app Express (export default) detectado pela Vercel
 - `public/index.html` → front-end servido como arquivo estático pelo CDN
   (na Vercel, `express.static()` é ignorado; estáticos só valem em `public/**`)
+- `vercel.json` → força `"framework": "express"` para garantir que a função seja
+  construída mesmo que o preset do painel tenha ficado como "Other"
 - Fotos gravadas no Postgres (não em disco, que é efêmero na Vercel)
 
 Passos:
 
 1. Crie o banco no Neon e copie a **Pooled connection string**.
 2. Na Vercel, importe o repositório do GitHub (ou rode `npx vercel`).
-   - **Framework Preset:** deixe em **Other** (a detecção de Express já acontece).
+   - **Framework Preset:** **Express** (o `vercel.json` já força isso).
    - **Root Directory:** a raiz do repositório.
 3. Em **Settings → Environment Variables**, defina (para Production e Preview):
    - `DATABASE_URL` = connection string do Neon
@@ -61,7 +63,7 @@ Passos:
 
 Observações da Vercel:
 
-- **Importante:** não use `app.listen()` no arquivo detectado (só no `local-server.js`,
+- **Importante:** não use `app.listen()` no arquivo detectado (só no `dev.js`,
   que roda em desenvolvimento). Use `export default app`.
 - Limite de corpo das funções serverless: ~4,5 MB. O upload de foto é limitado a **4 MB**
   (o front reduz a imagem automaticamente antes de enviar).
@@ -151,6 +153,7 @@ projetokauan/
 │   │   └── sessionRoutes.js  # upload de foto (memória) + histórico + imagem
 │   └── data/
 │       └── defaultTasks.js   # 40 tarefas padrão com links do YouTube
-├── local-server.js           # Servidor local (app.listen) — só para desenvolvimento
+├── vercel.json               # Força o Framework Preset "express"
+├── dev.js                    # Servidor local (app.listen) — só para desenvolvimento
 └── .env                      # DATABASE_URL e JWT_SECRET (não versionado)
 ```
