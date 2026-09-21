@@ -7,6 +7,7 @@ import {
   seedUserTasks
 } from "../database.js";
 import { signToken, requireAuth } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ function validEmail(email) {
   return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-router.post("/register", (req, res) => {
+router.post("/register", asyncHandler(async (req, res) => {
   const { name, email, password, photoConsent } = req.body || {};
 
   if (!name || !name.trim()) {
@@ -33,34 +34,34 @@ router.post("/register", (req, res) => {
       .status(400)
       .json({ error: "Autorize o registro de imagem para criar a conta" });
   }
-  if (findUserByEmail(email.toLowerCase())) {
+  if (await findUserByEmail(email.toLowerCase())) {
     return res.status(409).json({ error: "E-mail já cadastrado" });
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  const id = createUser(name.trim(), email.toLowerCase(), passwordHash, true);
-  seedUserTasks(Number(id));
+  const id = await createUser(name.trim(), email.toLowerCase(), passwordHash, true);
+  await seedUserTasks(id);
 
-  const user = findUserById(Number(id));
+  const user = await findUserById(id);
   return res.status(201).json({ user, token: signToken(user) });
-});
+}));
 
-router.post("/login", (req, res) => {
+router.post("/login", asyncHandler(async (req, res) => {
   const { email, password } = req.body || {};
-  const user = validEmail(email) ? findUserByEmail(email.toLowerCase()) : null;
+  const user = validEmail(email) ? await findUserByEmail(email.toLowerCase()) : null;
 
   if (!user || !password || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: "E-mail ou senha incorretos" });
   }
 
-  const safe = findUserById(user.id);
+  const safe = await findUserById(user.id);
   return res.json({ user: safe, token: signToken(safe) });
-});
+}));
 
-router.get("/me", requireAuth, (req, res) => {
-  const user = findUserById(req.user.id);
+router.get("/me", requireAuth, asyncHandler(async (req, res) => {
+  const user = await findUserById(req.user.id);
   if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
   return res.json({ user });
-});
+}));
 
 export default router;

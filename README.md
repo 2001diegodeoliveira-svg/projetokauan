@@ -45,6 +45,20 @@ pode não funcionar — nesse caso use **"Enviar arquivo"** (tira a foto pela c�
 do celular e envia). Para usar a câmera ao vivo fora do localhost, sirva o app
 por HTTPS (ex.: proxy reverso com certificado, ou túnel tipo ngrok/Cloudflare).
 
+### Registro por foto (câmera)
+
+Ao clicar em **▶ Assistir aula**, o app abre o modal e **pede permissão da câmera**
+(`getUserMedia`). O fluxo:
+
+1. Autorize a câmera no aviso do navegador (se negar, dá para reautorizar no cadeado).
+2. O vídeo aparece ao vivo; clique em **📷 Tirar foto**.
+3. Use **🔄 Refazer** para tirar outra e **🔁 Trocar câmera** (frontal/traseira)
+   quando houver mais de uma câmera.
+4. Confirme para enviar a foto, marcar o tópico como concluído e abrir a aula.
+
+Sem câmera, o botão **📁 Enviar arquivo** faz o mesmo registro a partir de uma imagem.
+
+
 
 ## Rotas da API
 

@@ -23,6 +23,7 @@
     --radius: 14px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
   body {
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%);
@@ -471,13 +472,16 @@
         <button id="closeModal" title="Fechar">×</button>
       </div>
       <p class="modal-sub" id="watchTopic"></p>
+      <p class="modal-sub" id="camHint">Ao abrir, autorize o uso da câmera. Sem câmera, use "Enviar arquivo".</p>
       <div class="cam-wrap">
         <video id="camVideo" autoplay playsinline muted></video>
         <canvas id="snapCanvas" hidden></canvas>
         <img id="photoPreview" class="photo-preview" alt="Prévia da foto" hidden>
       </div>
       <div class="modal-actions">
-        <button id="btnSnap" class="btn">📷 Tirar foto</button>
+        <button id="btnSnap" class="btn" disabled>📷 Tirar foto</button>
+        <button id="btnRetake" class="btn" hidden>🔄 Refazer</button>
+        <button id="btnFlip" class="btn" hidden>🔁 Trocar câmera</button>
         <label class="btn btn-ghost" for="fileInput">📁 Enviar arquivo</label>
         <input id="fileInput" type="file" accept="image/*" hidden />
       </div>
@@ -739,16 +743,30 @@
   const snapCanvas = $("snapCanvas");
   const photoPreview = $("photoPreview");
 
+  let camReady = false;
+  let facingMode = "user";
+
+  function camSupported() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
   function openWatchModal(id, videoUrl) {
     watchTaskId = id;
     photoBlob = null;
+    camReady = false;
+    facingMode = "user";
     photoPreview.hidden = true;
+    photoPreview.removeAttribute("src");
     snapCanvas.hidden = true;
     camVideo.hidden = false;
     $("fileInput").value = "";
     $("noteInput").value = "";
     $("watchMsg").textContent = "";
     $("btnConfirmWatch").disabled = true;
+    $("btnSnap").hidden = false;
+    $("btnSnap").disabled = true;
+    $("btnRetake").hidden = true;
+    $("btnFlip").hidden = true;
     $("watchTopic").textContent = "Assista a aula: " + (videoUrl || "");
     modal.hidden = false;
     modal.dataset.video = videoUrl || "";
@@ -756,11 +774,55 @@
   }
 
   async function startCam() {
+    if (!camSupported()) {
+      $("watchMsg").textContent = window.isSecureContext
+        ? "Este navegador não suporta acesso à câmera. Use \"Enviar arquivo\"."
+        : "A câmera só funciona em localhost ou HTTPS. Use \"Enviar arquivo\" ou acesse via localhost.";
+      $("btnSnap").disabled = true;
+      return;
+    }
+    stopCam();
+    camReady = false;
+    $("btnSnap").disabled = true;
+    camVideo.hidden = false;
+    $("watchMsg").textContent = "Solicitando permissão da câmera...";
     try {
-      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
       camVideo.srcObject = camStream;
+      await camVideo.play().catch(() => {});
+      camReady = true;
+      $("btnSnap").disabled = false;
+      $("watchMsg").textContent = "";
+      updateFlipButton();
+    } catch (err) {
+      handleCamError(err);
+    }
+  }
+
+  function handleCamError(err) {
+    const name = err && err.name;
+    let msg = "Não foi possível acessar a câmera. Use \"Enviar arquivo\".";
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      msg = "Permissão da câmera negada. Toque no cadeado do navegador, libere a câmera e tente de novo (ou use \"Enviar arquivo\").";
+    } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+      msg = "Nenhuma câmera encontrada neste dispositivo. Use \"Enviar arquivo\".";
+    } else if (name === "NotReadableError" || name === "AbortError") {
+      msg = "A câmera está sendo usada por outro programa. Feche-o e tente de novo.";
+    }
+    $("watchMsg").textContent = msg;
+    $("btnSnap").disabled = true;
+  }
+
+  async function updateFlipButton() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      $("btnFlip").hidden = cams.length < 2;
     } catch {
-      $("watchMsg").textContent = "Câmera indisponível. Use a opção de enviar arquivo.";
+      $("btnFlip").hidden = true;
     }
   }
 
@@ -769,16 +831,21 @@
       camStream.getTracks().forEach((t) => t.stop());
       camStream = null;
     }
+    camReady = false;
+    if (camVideo.srcObject) camVideo.srcObject = null;
   }
 
   $("btnSnap").addEventListener("click", () => {
-    if (!camStream) {
-      $("watchMsg").textContent = "Ative a câmera primeiro.";
+    if (!camStream || !camReady) { startCam(); return; }
+    const w = camVideo.videoWidth;
+    const h = camVideo.videoHeight;
+    if (!w || !h) {
+      $("watchMsg").textContent = "A câmera ainda está iniciando. Tente novamente em instantes.";
       return;
     }
-    snapCanvas.width = camVideo.videoWidth || 640;
-    snapCanvas.height = camVideo.videoHeight || 480;
-    snapCanvas.getContext("2d").drawImage(camVideo, 0, 0);
+    snapCanvas.width = w;
+    snapCanvas.height = h;
+    snapCanvas.getContext("2d").drawImage(camVideo, 0, 0, w, h);
     snapCanvas.toBlob((blob) => {
       if (!blob) { $("watchMsg").textContent = "Não foi possível capturar a foto."; return; }
       photoBlob = blob;
@@ -787,8 +854,32 @@
       photoPreview.src = URL.createObjectURL(blob);
       photoPreview.hidden = false;
       $("btnConfirmWatch").disabled = false;
-      $("watchMsg").textContent = "";
+      $("btnSnap").hidden = true;
+      $("btnRetake").hidden = false;
+      $("watchMsg").textContent = "Foto capturada. Confirme para registrar a aula.";
     }, "image/jpeg", 0.85);
+  });
+
+  $("btnRetake").addEventListener("click", () => {
+    photoBlob = null;
+    photoPreview.hidden = true;
+    photoPreview.removeAttribute("src");
+    snapCanvas.hidden = true;
+    $("btnConfirmWatch").disabled = true;
+    $("btnRetake").hidden = true;
+    $("btnSnap").hidden = false;
+    $("watchMsg").textContent = "";
+    if (camStream && camReady) {
+      camVideo.hidden = false;
+      $("btnSnap").disabled = false;
+    } else {
+      startCam();
+    }
+  });
+
+  $("btnFlip").addEventListener("click", () => {
+    facingMode = facingMode === "user" ? "environment" : "user";
+    startCam();
   });
 
   $("fileInput").addEventListener("change", () => {
@@ -808,7 +899,9 @@
     photoPreview.src = URL.createObjectURL(file);
     photoPreview.hidden = false;
     $("btnConfirmWatch").disabled = false;
-    $("watchMsg").textContent = "";
+    $("btnSnap").hidden = true;
+    $("btnRetake").hidden = false;
+    $("watchMsg").textContent = "Imagem carregada. Confirme para registrar a aula.";
   });
 
   $("btnConfirmWatch").addEventListener("click", async () => {

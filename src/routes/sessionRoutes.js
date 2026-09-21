@@ -4,6 +4,7 @@ import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { requireAuth } from "../middleware/auth.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   getTaskById,
   hasPhotoConsent,
@@ -36,23 +37,23 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/tasks/:id/watch", requireAuth, upload.single("photo"), (req, res) => {
+router.post("/tasks/:id/watch", requireAuth, upload.single("photo"), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Foto obrigatória para registrar a aula" });
   }
-  if (!hasPhotoConsent(req.user.id)) {
+  if (!(await hasPhotoConsent(req.user.id))) {
     return res
       .status(403)
       .json({ error: "Você não autorizou o registro de imagem no cadastro" });
   }
 
   const id = Number(req.params.id);
-  const task = getTaskById(id, req.user.id);
+  const task = await getTaskById(id, req.user.id);
   if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
 
-  markTaskDone(id, req.user.id);
+  await markTaskDone(id, req.user.id);
   const photoPath = `/uploads/photos/${req.file.filename}`;
-  const session = createSession(
+  const session = await createSession(
     req.user.id,
     id,
     photoPath,
@@ -62,13 +63,13 @@ router.post("/tasks/:id/watch", requireAuth, upload.single("photo"), (req, res) 
 
   return res.status(201).json({
     session,
-    task: getTaskById(id, req.user.id),
+    task: await getTaskById(id, req.user.id),
     video_url: task.video_url
   });
-});
+}));
 
-router.get("/", requireAuth, (req, res) => {
-  return res.json({ sessions: listSessions(req.user.id) });
-});
+router.get("/", requireAuth, asyncHandler(async (req, res) => {
+  return res.json({ sessions: await listSessions(req.user.id) });
+}));
 
 export default router;
