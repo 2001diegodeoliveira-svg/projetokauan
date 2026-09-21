@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { initDb, pool } from "./database.js";
+import { DATABASE_URL } from "./config.js";
 import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
@@ -41,6 +42,9 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/api/health", async (_req, res) => {
+  if (!DATABASE_URL) {
+    return res.status(503).json({ status: "degraded", database: "not_configured" });
+  }
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", service: "cronograma-9ano-api", database: "up" });
@@ -49,7 +53,13 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
-app.use((_req, _res, next) => {
+app.use((_req, res, next) => {
+  if (!DATABASE_URL) {
+    return res.status(503).json({
+      error:
+        "Banco de dados não configurado. Defina DATABASE_URL (Neon) nas variáveis de ambiente da Vercel.",
+    });
+  }
   ensureDb().then(() => next()).catch(next);
 });
 
@@ -68,6 +78,12 @@ app.use((err, _req, res, _next) => {
       ? "A foto deve ter no máximo 4 MB"
       : "Erro no envio da foto";
     return res.status(400).json({ error: message });
+  }
+  if (err && (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT")) {
+    return res.status(503).json({
+      error:
+        "Não foi possível conectar ao banco de dados. Confira a DATABASE_URL (use a conexão Pooled do Neon).",
+    });
   }
   if (err && err.message) {
     return res.status(400).json({ error: err.message });
