@@ -7,6 +7,7 @@ Node.js + Express + PostgreSQL (Neon), pronto para rodar local e na **Vercel**. 
 - 40 tarefas padrão do cronograma (8 semanas), cada uma com **link de aula no YouTube**
 - **Foto obrigatória para assistir cada aula** (câmera ou arquivo) → histórico de participação
 - CRUD de tarefas e progresso por semana
+- **Painel administrativo** (aba ADM): ver todos os alunos, evolução semanal e registros com foto
 - Termo de consentimento de imagem (LGPD) no cadastro
 
 > Atenção (LGPD): o sistema guarda fotos de alunos (menores). Conteúdo sensível.
@@ -104,6 +105,17 @@ no navegador antes do envio).
 | POST   | `/api/auth/register`    | Cadastro `{name, email, password, photoConsent}` (consentimento obrigatório) |
 | POST   | `/api/auth/login`       | Login `{email, password}` → devolve token                        |
 | GET    | `/api/auth/me`          | Dados do aluno logado (requer token)                             |
+
+### Administrador (requer token de ADM)
+
+Credenciais padrão: `ADMIN_USERNAME=adm` / `ADMIN_PASSWORD=dev123`
+(em produção, defina essas duas variáveis na Vercel para não usar o padrão).
+
+| Método | Rota                    | Descrição |
+| ------ | ----------------------- | --------- |
+| POST   | `/api/admin/login`      | Login `{username, password}` → token de ADM |
+| GET    | `/api/admin/students`   | Todos os alunos com progresso (evolução por semana) |
+| GET    | `/api/admin/students/:id` | Detalhe do aluno + evolução semanal + registros com foto |
 
 ### Tarefas (requer `Authorization: Bearer <token>`)
 

@@ -205,6 +205,29 @@
   }
   footer { text-align: center; margin-top: 40px; color: var(--muted); font-size: 0.8rem; }
 
+  /* Painel administrativo */
+  .admin-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .student-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .student-card .s-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .student-card h3 { color: #fff; font-size: 1.05rem; }
+  .student-card .s-meta { color: var(--muted); font-size: 0.85rem; margin-top: 4px; word-break: break-word; }
+  .student-card .s-progress { margin-top: 12px; font-size: 0.88rem; color: var(--muted); }
+  .student-card .s-progress .pct { color: var(--accent); font-weight: 700; }
+  .student-card .bar { height: 10px; margin-top: 6px; }
+  .evo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin: 16px 0 28px; }
+  .evo-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .evo-card h4 { color: #fff; font-size: 0.95rem; margin-bottom: 2px; }
+  .evo-card p { color: var(--muted); font-size: 0.8rem; margin-bottom: 8px; }
+  .evo-card .bar { height: 10px; }
+  .admin-records { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
   /* ---------- TABLET ---------- */
   @media (max-width: 820px) {
     .cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
@@ -328,6 +351,7 @@
         <div class="auth-tabs">
           <button id="tabLogin" class="active">Entrar</button>
           <button id="tabRegister">Cadastrar</button>
+          <button id="tabAdmin">ADM</button>
         </div>
         <form id="loginForm" class="auth-form">
           <label>E-mail</label>
@@ -348,6 +372,13 @@
             <span>Autorizo o registro da minha imagem para compor o histórico de participação nas aulas (previsto na LGPD). Sem esta autorização não é possível criar a conta.</span>
           </label>
           <button type="submit" class="btn btn-primary">Criar conta</button>
+        </form>
+        <form id="adminForm" class="auth-form" hidden>
+          <label>Usuário ADM</label>
+          <input type="text" id="admUser" required autocomplete="username" />
+          <label>Senha ADM</label>
+          <input type="password" id="admPassword" required autocomplete="current-password" />
+          <button type="submit" class="btn btn-primary">Entrar como ADM</button>
         </form>
         <p class="auth-msg" id="authMsg"></p>
       </div>
@@ -464,6 +495,39 @@
     <footer>Estude um pouco todo dia. Boa prova!</footer>
   </div>
 
+  <!-- PAINEL ADMIN -->
+  <div id="adminView" hidden>
+    <section id="adminStudentsSection">
+      <div class="admin-head">
+        <h2>Painel administrativo</h2>
+        <div class="admin-actions">
+          <button class="btn" id="btnAdminReload">Atualizar</button>
+          <button class="btn btn-danger" id="btnAdminLogout">Sair do ADM</button>
+        </div>
+      </div>
+      <p class="sub">Todos os alunos cadastrados, com evolução semanal e histórico de registros com foto.</p>
+      <div id="adminList"></div>
+    </section>
+
+    <section id="adminStudentView" hidden>
+      <div class="admin-head">
+        <div>
+          <h2 id="admStudentName"></h2>
+          <p class="sub" id="admStudentMeta"></p>
+        </div>
+        <div class="admin-actions">
+          <button class="btn" id="btnAdminBack">← Voltar</button>
+          <button class="btn btn-danger" id="btnAdminLogout2">Sair do ADM</button>
+        </div>
+      </div>
+      <h3>Evolução semanal</h3>
+      <div class="evo-grid" id="admEvolution"></div>
+      <h3>Registros de participação</h3>
+      <p class="sub">Fotos tiradas pelo aluno a cada aula assistida.</p>
+      <div class="admin-records" id="admRecords"></div>
+    </section>
+  </div>
+
   <!-- MODAL FOTO / AULA -->
   <div id="watchModal" class="overlay" hidden>
     <div class="modal">
@@ -496,6 +560,7 @@
 <script>
 (function () {
   const TOKEN_KEY = "cron9ano_token";
+  const ADMIN_KEY = "cron9ano_adm";
   const WEEK_META = {
     s1: { title: "Semana 1 · Fundamentos", focus: "Foco: Português + Matemática (base)" },
     s2: { title: "Semana 2 · Português e Matemática", focus: "Foco: gramática + equações" },
@@ -508,6 +573,7 @@
   };
 
   let token = localStorage.getItem(TOKEN_KEY) || "";
+  let adminToken = localStorage.getItem(ADMIN_KEY) || "";
   let user = null;
   let photoBlob = null;
   let camStream = null;
@@ -538,6 +604,21 @@
     return data;
   }
 
+  async function adminApi(path, opts = {}) {
+    const headers = {};
+    if (adminToken) headers.Authorization = "Bearer " + adminToken;
+    if (opts.body && !(opts.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch("/api" + path, { ...opts, headers });
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (res.status === 401) { adminLogout(); }
+    if (!res.ok) throw new Error(data.error || "Erro no servidor");
+    return data;
+  }
+
   /* ---------- AUTH ---------- */
   function logout(showForm = true) {
     token = "";
@@ -554,13 +635,17 @@
   $("tabRegister").addEventListener("click", () => switchTab("register"));
 
   function switchTab(tab) {
-    const loginTab = $("tabLogin"), regTab = $("tabRegister");
+    const loginTab = $("tabLogin"), regTab = $("tabRegister"), admTab = $("tabAdmin");
     loginTab.classList.toggle("active", tab === "login");
     regTab.classList.toggle("active", tab === "register");
+    admTab.classList.toggle("active", tab === "admin");
     $("loginForm").hidden = tab !== "login";
     $("registerForm").hidden = tab !== "register";
+    $("adminForm").hidden = tab !== "admin";
     $("authMsg").textContent = "";
   }
+
+  $("tabAdmin").addEventListener("click", () => switchTab("admin"));
 
   $("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -604,6 +689,139 @@
   function setAuthMsg(text) { $("authMsg").textContent = text; }
 
   $("btnLogout").addEventListener("click", () => logout(true));
+
+  /* ---------- ADMIN ---------- */
+  $("adminForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setAuthMsg("");
+    try {
+      const data = await adminApi("/admin/login", {
+        method: "POST",
+        body: { username: $("admUser").value.trim(), password: $("admPassword").value }
+      });
+      adminToken = data.token;
+      localStorage.setItem(ADMIN_KEY, adminToken);
+      $("admPassword").value = "";
+      await showAdmin();
+    } catch (err) { setAuthMsg(err.message); }
+  });
+
+  $("btnAdminReload").addEventListener("click", () => loadAdmin());
+  $("btnAdminBack").addEventListener("click", () => {
+    $("adminStudentView").hidden = true;
+    $("adminStudentsSection").hidden = false;
+    showBanner("");
+  });
+  $("btnAdminLogout").addEventListener("click", adminLogout);
+  $("btnAdminLogout2").addEventListener("click", adminLogout);
+
+  function adminLogout() {
+    adminToken = "";
+    localStorage.removeItem(ADMIN_KEY);
+    $("adminView").hidden = true;
+    $("authView").hidden = false;
+    showBanner("");
+    stopCam();
+  }
+
+  async function showAdmin() {
+    $("authView").hidden = true;
+    $("appView").hidden = true;
+    $("userbar").hidden = true;
+    $("adminView").hidden = false;
+    $("adminStudentView").hidden = true;
+    $("adminStudentsSection").hidden = false;
+    showBanner("");
+    await loadAdmin();
+  }
+
+  async function loadAdmin() {
+    try {
+      const data = await adminApi("/admin/students");
+      renderAdminStudents(data.students);
+    } catch (err) {
+      showBanner(err.message, "err");
+    }
+  }
+
+  function renderAdminStudents(students) {
+    const el = $("adminList");
+    if (!students.length) {
+      el.innerHTML = '<p class="history-empty">Nenhum aluno cadastrado ainda.</p>';
+      return;
+    }
+    el.innerHTML = students.map((s) => {
+      const pct = s.total_tasks ? Math.round((s.done_tasks / s.total_tasks) * 100) : 0;
+      const last = s.last_activity ? formatDate(s.last_activity) : "—";
+      return `<div class="student-card">
+        <div class="s-top">
+          <div>
+            <h3>${escapeHtml(s.name)}</h3>
+            <p class="s-meta">${escapeHtml(s.email)} · usuário desde ${formatDate(s.created_at)} · consentimento de imagem: ${s.photo_consent ? "sim" : "não"}</p>
+          </div>
+          <button class="btn" data-student="${s.id}">Ver evolução e registros</button>
+        </div>
+        <div class="s-progress">
+          <span>${s.done_tasks}/${s.total_tasks} de ${s.total_tasks} aulas concluídas (<b class="pct">${pct}%</b>) · ${s.sessions_count} registro(s) de aula · última atividade: ${last}</span>
+          <div class="bar"><div style="width:${pct}%"></div></div>
+        </div>
+      </div>`;
+    }).join("");
+    el.querySelectorAll("[data-student]").forEach((btn) => {
+      btn.addEventListener("click", () => loadAdminStudent(Number(btn.dataset.student)));
+    });
+  }
+
+  async function loadAdminStudent(id) {
+    try {
+      const data = await adminApi(`/admin/students/${id}`);
+      showAdminStudent(data);
+    } catch (err) { showBanner(err.message, "err"); }
+  }
+
+  function showAdminStudent(d) {
+    const s = d.student;
+    $("adminStudentsSection").hidden = true;
+    $("adminStudentView").hidden = false;
+    $("admStudentName").textContent = s.name;
+    $("admStudentMeta").textContent =
+      s.email + " · " + (s.photo_consent ? "autorizou o registro de imagem" : "não autorizou o registro de imagem") + " · usuário desde " + formatDate(s.created_at);
+    renderEvolution(d.weeks);
+    renderAdminRecords(d.sessions);
+  }
+
+  function renderEvolution(weeks) {
+    const order = ["s1","s2","s3","s4","s5","s6","s7","s8"];
+    $("admEvolution").innerHTML = order.map((wk) => {
+      const meta = WEEK_META[wk] || { title: wk, focus: "" };
+      const st = weeks[wk] || { total: 0, done: 0 };
+      const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+      return `<div class="evo-card">
+        <h4>${escapeHtml(meta.title)}</h4>
+        <p>${st.done}/${st.total} concluídos · <b>${pct}%</b></p>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderAdminRecords(sessions) {
+    const el = $("admRecords");
+    if (!sessions.length) {
+      el.innerHTML = '<p class="history-empty">Nenhuma aula registrada por este aluno.</p>';
+      return;
+    }
+    const studentName = $("admStudentName").textContent;
+    el.innerHTML = sessions.map((s) => `
+      <div class="history-card">
+        <img src="${escapeAttr(s.photo_path)}?token=${encodeURIComponent(adminToken)}" alt="Registro de ${escapeAttr(studentName)}" loading="lazy" />
+        <div class="info">
+          <b>${escapeHtml(s.subject)} · ${escapeHtml(s.day)}</b>
+          <span>${formatDate(s.watched_at)}</span>
+          ${s.note ? '<br><span>📝 ' + escapeHtml(s.note) + '</span>' : ""}
+        </div>
+      </div>
+    `).join("");
+  }
 
   /* ---------- APP ---------- */
   async function loadApp() {
@@ -959,7 +1177,9 @@
   });
 
   /* ---------- INIT ---------- */
-  if (token) { loadApp(); } else { $("authView").hidden = false; }
+  if (adminToken) { showAdmin(); }
+  else if (token) { loadApp(); }
+  else { $("authView").hidden = false; }
 })();
 </script>
 </body>

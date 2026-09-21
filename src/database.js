@@ -230,3 +230,16 @@ export async function listSessions(userId) {
   );
   return rows;
 }
+
+export async function listStudents() {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.name, u.email, u.photo_consent, u.created_at,
+            (SELECT COUNT(*)::int FROM tasks t WHERE t.user_id = u.id) AS total_tasks,
+            (SELECT COUNT(*)::int FROM tasks t WHERE t.user_id = u.id AND t.done) AS done_tasks,
+            (SELECT COUNT(*)::int FROM sessions s WHERE s.user_id = u.id) AS sessions_count,
+            (SELECT MAX(s.watched_at) FROM sessions s WHERE s.user_id = u.id) AS last_activity
+     FROM users u
+     ORDER BY u.created_at ASC`
+  );
+  return rows;
+}
