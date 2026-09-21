@@ -6,3 +6,5 @@ data/photos/
 .env
 .vercel
 npm-debug.log*
+.vercel
+.env*
