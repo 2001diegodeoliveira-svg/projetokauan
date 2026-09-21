@@ -600,7 +600,11 @@
     if (res.status === 401) { logout(false); }
     let data = {};
     try { data = await res.json(); } catch {}
-    if (!res.ok) throw new Error(data.error || "Erro no servidor");
+    if (!res.ok) {
+      const e = new Error(data.error || "Erro no servidor");
+      e.status = res.status;
+      throw e;
+    }
     return data;
   }
 
@@ -615,19 +619,23 @@
     let data = {};
     try { data = await res.json(); } catch {}
     if (res.status === 401) { adminLogout(); }
-    if (!res.ok) throw new Error(data.error || "Erro no servidor");
+    if (!res.ok) {
+      const e = new Error(data.error || "Erro no servidor");
+      e.status = res.status;
+      throw e;
+    }
     return data;
   }
 
   /* ---------- AUTH ---------- */
-  function logout(showForm = true) {
+  function logout(showForm = true, msg) {
     token = "";
     localStorage.removeItem(TOKEN_KEY);
     user = null;
     $("userbar").hidden = true;
     $("appView").hidden = true;
     $("authView").hidden = false;
-    $("authMsg").textContent = showForm ? "Sessão encerrada." : "Sessão expirada. Entre novamente.";
+    $("authMsg").textContent = msg || (showForm ? "Sessão encerrada." : "Sessão expirada. Entre novamente.");
     stopCam();
   }
 
@@ -838,7 +846,11 @@
       const sessions = await api("/sessions");
       renderHistory(sessions.sessions);
     } catch (err) {
-      showBanner("Não foi possível conectar ao backend. Rode `npm start` na pasta do projeto e atualize a página.", "err");
+      if (err.status === 401 || err.status === 404) {
+        logout(false, "Sua sessão expirou ou a conta não existe mais. Entre novamente.");
+      } else {
+        showBanner("Não foi possível carregar os dados. Verifique a conexão e tente novamente em instantes.");
+      }
     }
   }
 
