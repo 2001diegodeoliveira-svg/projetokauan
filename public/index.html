@@ -1564,8 +1564,7 @@
   }
 
   async function submitProvaQuiz() {
-    const q = provaState.questions.length;
-    const answers = q.map((_, qi) => {
+    const answers = provaState.questions.map((_, qi) => {
       const sel = document.querySelector(`#provaQuestions input[name="pq${qi}"]:checked`);
       return sel ? Number(sel.value) : null;
     });
