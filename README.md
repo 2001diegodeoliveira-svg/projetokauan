@@ -7,7 +7,8 @@ Node.js + Express + PostgreSQL (Neon), pronto para rodar local e na **Vercel**. 
 - 40 tarefas padrão do cronograma (8 semanas), cada uma com **link de aula no YouTube**
 - **Foto obrigatória para assistir cada aula** (câmera ou arquivo) → histórico de participação
 - CRUD de tarefas e progresso por semana
-- **Painel administrativo** (aba ADM): ver todos os alunos, evolução semanal e registros com foto
+- **Provas semanais por progressão**: cada semana é liberada somente após a aprovação na prova da semana anterior
+- **Painel administrativo** (aba ADM): ver todos os alunos, evolução semanal, registros com foto e notas das provas
 - Termo de consentimento de imagem (LGPD) no cadastro
 
 > Atenção (LGPD): o sistema guarda fotos de alunos (menores). Conteúdo sensível.
@@ -34,7 +35,7 @@ npm install
 npm start        # ou: npm run dev (reinicia ao salvar)
 ```
 
-Abra `http://localhost:3000`. As tabelas (`users`, `tasks`, `sessions`) são criadas
+Abra `http://localhost:3000`. As tabelas (`users`, `tasks`, `sessions`, `provas`) são criadas
 automaticamente na primeira execução. As **fotos ficam no próprio banco** (coluna
 `BYTEA`), por isso o sistema funciona igual em disco ou em ambiente serverless.
 
@@ -115,7 +116,39 @@ Credenciais padrão: `ADMIN_USERNAME=adm` / `ADMIN_PASSWORD=dev123`
 | ------ | ----------------------- | --------- |
 | POST   | `/api/admin/login`      | Login `{username, password}` → token de ADM |
 | GET    | `/api/admin/students`   | Todos os alunos com progresso (evolução por semana) |
-| GET    | `/api/admin/students/:id` | Detalhe do aluno + evolução semanal + registros com foto |
+| GET    | `/api/admin/students/:id` | Detalhe do aluno + evolução semanal + registros com foto + notas das provas |
+
+### Provas semanais (requer `Authorization: Bearer <token>`)
+
+Regras:
+
+- **Progressão**: a semana 1 é sempre liberada. A semana `N` (N > 1) só é liberada
+  se a prova da semana `N−1` foi **aprovada** (nota ≥ 50%). Enquanto uma semana
+  estiver travada, marcar tarefa como feita ou assistir aula nela retorna `403`.
+- **Como iniciar**: só é possível iniciar a prova se a semana está liberada, **todas
+  as tarefas da semana foram concluídas** e foi enviada uma **foto** (JPEG/PNG/WebP,
+  ≤ 4 MB) junto com o `week` (multipart). Repetir a prova de uma semana já aprovada
+  retorna `409`.
+- **Formato**: 15 questões por semana (5 alternativas, 1 correta) sorteadas do banco
+  de questões (`src/data/provaQuestions.js`). A nota de corte para aprovação é **50%**:
+  `required = ceil(15 × 0.5) = 8` acertos.
+- **Anti-cola**: o front monitora `visibilitychange`/`blur`/`focus`; sair da página por
+  mais de 2 s registra uma violação (`POST /:id/violation`). Com **3 violações** a prova
+  é **cancelada** automaticamente.
+- **Retomada**: uma prova em andamento pode ser retomada por `GET /:id` (sem pedir nova
+  foto, mantém as mesmas questões). Provas abandonadas por mais de 40 min são canceladas.
+
+| Método | Rota                    | Descrição |
+| ------ | ----------------------- | --------- |
+| GET    | `/api/provas`           | Status da semana (`gates`), provas do aluno e mínimo para passar |
+| POST   | `/api/provas/start`     | **Multipart** `week` + `photo` → inicia/retoma a prova (devolve 15 questões) |
+| GET    | `/api/provas/:id`       | Retoma a prova em andamento (mesmas questões, sem gabarito) |
+| POST   | `/api/provas/:id/violation` | Registra uma saída da tela (3 cancela a prova) |
+| POST   | `/api/provas/:id/submit` | Envia `{answers:[...]}` → corrige, grava resultado e libera a próxima semana se passar |
+| POST   | `/api/provas/:id/cancel` | Cancela a prova em andamento |
+
+A API devolve apenas o enunciado e as alternativas **embaralhadas**; o gabarito
+(chave correta) fica somente no banco (coluna `questions` JSONB da tabela `provas`).
 
 ### Tarefas (requer `Authorization: Bearer <token>`)
 
@@ -125,14 +158,14 @@ Credenciais padrão: `ADMIN_USERNAME=adm` / `ADMIN_PASSWORD=dev123`
 | POST   | `/api/tasks`            | Cria tarefa `{week, day, subject, tag, topic, video_url}` |
 | POST   | `/api/tasks/seed`       | Recria as 40 tarefas padrão (`reset: true` para apagar antes) |
 | PATCH  | `/api/tasks/:id`        | Edita a tarefa                                   |
-| PATCH  | `/api/tasks/:id/done`   | Alterna `done`                                   |
+| PATCH  | `/api/tasks/:id/done`   | Alterna `done` (bloqueia com `403` se a semana ainda está travada) |
 | DELETE | `/api/tasks/:id`        | Exclui a tarefa                                  |
 
 ### Aulas e histórico (requer token)
 
 | Método | Rota                           | Descrição |
 | ------ | ------------------------------ | --------- |
-| POST   | `/api/sessions/tasks/:id/watch`| **Multipart** com `photo` (≤4 MB, JPG/PNG/WebP). Marca a tarefa concluída e registra a sessão. |
+| POST   | `/api/sessions/tasks/:id/watch`| **Multipart** com `photo` (≤4 MB, JPG/PNG/WebP). Marca a tarefa concluída e registra a sessão (bloqueia com `403` se a semana está travada). |
 | GET    | `/api/sessions`                | Histórico de participação (foto, disciplina, data) |
 | GET    | `/api/sessions/photo/:arquivo` | Foto registrada (lida do banco; aceita token via header ou `?token=`) |
 
@@ -146,7 +179,11 @@ Professores podem trocar por vídeo específico via `PATCH /api/tasks/:id` com `
 2. No cronograma, clica em **▶ Assistir aula**.
 3. Tira foto (câmera) ou envia arquivo → confirma.
 4. O sistema registra a sessão, marca o tópico concluído e abre a aula no YouTube.
-5. O histórico de participação mostra todas as fotos e datas.
+5. Concluídas as aulas da semana, clica em **Iniciar Prova** (nova foto), responde as
+   15 questões e recebe o resultado na hora.
+6. Nota ≥ 50% libera a próxima semana; sair da tela mais de 2 s conta violação
+   (3 violações cancelam a prova).
+7. O histórico de participação mostra todas as fotos e datas.
 
 ## Estrutura
 
@@ -157,14 +194,17 @@ projetokauan/
 ├── src/
 │   ├── app.js                # App Express (export default) — entrada detectada pela Vercel
 │   ├── config.js             # PORT, JWT_SECRET, DATABASE_URL
-│   ├── database.js           # Postgres/Neon (users, tasks, sessions) e consultas
+│   ├── database.js           # Postgres/Neon (users, tasks, sessions, provas) e consultas
 │   ├── middleware/auth.js    # Token JWT (header ou ?token=)
 │   ├── routes/
 │   │   ├── authRoutes.js     # register / login / me (com consentimento LGPD)
-│   │   ├── taskRoutes.js     # CRUD de tarefas + progresso
-│   │   └── sessionRoutes.js  # upload de foto (memória) + histórico + imagem
+│   │   ├── taskRoutes.js     # CRUD de tarefas + progresso + controle de semanas travadas
+│   │   ├── sessionRoutes.js  # upload de foto (memória) + histórico + imagem
+│   │   ├── provaRoutes.js    # provas semanais (start, retomar, violação, submit)
+│   │   └── adminRoutes.js    # painel administrativo (inclui notas das provas)
 │   └── data/
-│       └── defaultTasks.js   # 40 tarefas padrão com links do YouTube
+│       ├── defaultTasks.js   # 40 tarefas padrão com links do YouTube
+│       └── provaQuestions.js # 120 questões de prova (15 por semana) + embaralhamento
 ├── vercel.json               # Força o Framework Preset "express"
 ├── dev.js                    # Servidor local (app.listen) — só para desenvolvimento
 └── .env                      # DATABASE_URL e JWT_SECRET (não versionado)

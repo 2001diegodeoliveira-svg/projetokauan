@@ -5,6 +5,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   getTaskById,
   hasPhotoConsent,
+  isWeekUnlocked,
   markTaskDone,
   createSession,
   listSessions,
@@ -38,6 +39,12 @@ router.post("/tasks/:id/watch", requireAuth, upload.single("photo"), asyncHandle
   const id = Number(req.params.id);
   const task = await getTaskById(id, req.user.id);
   if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
+
+  if (!(await isWeekUnlocked(req.user.id, task.week))) {
+    return res.status(403).json({
+      error: "Esta semana ainda está bloqueada. Passe na prova da semana anterior para liberá-la."
+    });
+  }
 
   await markTaskDone(id, req.user.id);
   const session = await createSession(

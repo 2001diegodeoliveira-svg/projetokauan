@@ -5,7 +5,10 @@ import {
   deleteUserTasks,
   getTaskById,
   getUserTasks,
+  getWeekGates,
   getWeekStats,
+  getUserProvas,
+  isWeekUnlocked,
   seedUserTasks,
   updateTask
 } from "../database.js";
@@ -19,13 +22,15 @@ router.use(requireAuth);
 router.get("/", asyncHandler(async (req, res) => {
   const tasks = await getUserTasks(req.user.id);
   const weeks = await getWeekStats(req.user.id);
+  const gates = await getWeekGates(req.user.id);
+  const provas = await getUserProvas(req.user.id);
   const done = tasks.filter((t) => t.done).length;
   const progress = {
     total: tasks.length,
     done,
     percent: tasks.length ? Math.round((done / tasks.length) * 100) : 0
   };
-  return res.json({ tasks, weeks, progress });
+  return res.json({ tasks, weeks, progress, gates, provas });
 }));
 
 router.post("/", asyncHandler(async (req, res) => {
@@ -84,6 +89,12 @@ router.patch("/:id/done", asyncHandler(async (req, res) => {
 
   const current = await getTaskById(id, req.user.id);
   if (!current) return res.status(404).json({ error: "Tarefa não encontrada" });
+
+  if (!(await isWeekUnlocked(req.user.id, current.week))) {
+    return res.status(403).json({
+      error: "Esta semana ainda está bloqueada. Passe na prova da semana anterior para liberá-la."
+    });
+  }
 
   const done = (req.body && req.body.done !== undefined)
     ? Boolean(req.body.done)

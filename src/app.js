@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import provaRoutes from "./routes/provaRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
@@ -68,6 +69,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/provas", provaRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Rota não encontrada" });

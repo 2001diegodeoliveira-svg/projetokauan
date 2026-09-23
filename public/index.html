@@ -226,6 +226,48 @@
   .btn-block { width: 100%; }
   #watchMsg { color: var(--red); font-size: 0.85rem; margin-top: 10px; min-height: 1em; text-align: center; }
 
+  /* Provas semanais */
+  .week.locked { opacity: 0.8; }
+  .week.locked .btn-watch { opacity: 0.55; }
+  .week-stats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .status .ok-note { color: var(--green); font-weight: 700; }
+  .status .fail-note { color: var(--red); font-weight: 600; }
+  .status .live-note { color: var(--purple); font-weight: 600; }
+  .status .locked-note { color: var(--muted); }
+  .btn-prova {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 12px; border-radius: 9px; font-size: 0.82rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: 0.15s;
+  }
+  .btn-prova-go { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn-prova-go:hover { background: #6a4a8a; border-color: #6a4a8a; }
+  .btn-prova-live { background: rgba(123,90,154,.16); border-color: rgba(123,90,154,.5); color: var(--purple); }
+  .btn-prova:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+  .modal-prova { max-width: 760px; }
+  .prova-q { background: #fffaf0; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .prova-q .qa { font-weight: 600; color: #251f18; margin-bottom: 10px; line-height: 1.5; }
+  .prova-q .opt {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 9px;
+    cursor: pointer; font-size: 0.92rem; line-height: 1.45; border: 1px solid transparent;
+  }
+  .prova-q .opt:hover { background: rgba(224,90,51,.06); }
+  .prova-q .opt input { margin-top: 3px; accent-color: var(--accent); min-width: 16px; }
+  .prova-q .opt b { min-width: 22px; color: var(--accent); }
+  .prova-q .opt.selected { background: rgba(224,90,51,.1); border-color: rgba(224,90,51,.4); }
+  .prova-result-box { text-align: center; padding: 22px 16px; border-radius: 14px; margin-bottom: 18px; }
+  .prova-result-box.passed { background: rgba(47,143,91,.12); border: 1px solid rgba(47,143,91,.5); }
+  .prova-result-box.failed { background: rgba(201,74,61,.1); border: 1px solid rgba(201,74,61,.4); }
+  .prova-result-box h3 { font-family: "Fraunces", Georgia, serif; color: #251f18; margin-bottom: 8px; }
+  .prova-result-box .score { font-size: 1.9rem; font-weight: 900; color: #251f18; }
+  .prova-result-box p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+  .feedback-item { display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 0.88rem; line-height: 1.5; }
+  .feedback-item.ok { background: rgba(47,143,91,.1); }
+  .feedback-item.no { background: rgba(201,74,61,.08); }
+  .feedback-item .badge { flex-shrink: 0; font-weight: 900; border-radius: 999px; padding: 2px 8px; align-self: flex-start; }
+  .feedback-item.ok .badge { background: rgba(47,143,91,.25); color: var(--green); }
+  .feedback-item.no .badge { background: rgba(201,74,61,.2); color: var(--red); }
+  .feedback-item b { color: #251f18; }
+
   .tips { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm); }
   .tips li { margin: 8px 0 8px 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
   .tips b { color: #251f18; }
@@ -570,6 +612,9 @@
       </div>
       <h3>Evolução semanal</h3>
       <div class="evo-grid" id="admEvolution"></div>
+      <h3>Provas semanais</h3>
+      <p class="sub">Resultado das provas de 15 questões (mínimo de 50% para aprovação).</p>
+      <div class="admin-records" id="admProvas"></div>
       <h3>Registros de participação</h3>
       <p class="sub">Fotos tiradas pelo aluno a cada aula assistida.</p>
       <div class="admin-records" id="admRecords"></div>
@@ -603,6 +648,47 @@
     </div>
   </div>
 
+  <!-- MODAL PROVA SEMANAL -->
+  <div id="provaModal" class="overlay" hidden>
+    <div class="modal modal-prova">
+      <div class="modal-head">
+        <h3 id="provaTitle">Prova da semana</h3>
+        <button id="closeProvaModal" title="Fechar">×</button>
+      </div>
+
+      <div id="provaStepIntro">
+        <p class="modal-sub" id="provaIntroText"></p>
+        <div class="cam-wrap">
+          <video id="provaVideo" autoplay playsinline muted></video>
+          <canvas id="provaCanvas" hidden></canvas>
+          <img id="provaPreview" class="photo-preview" alt="Prévia da foto" hidden>
+        </div>
+        <div class="modal-actions">
+          <button id="provaBtnSnap" class="btn" disabled><i data-lucide="camera"></i> Tirar foto</button>
+          <button id="provaBtnRetake" class="btn" hidden><i data-lucide="rotate-ccw"></i> Refazer</button>
+          <button id="provaBtnFlip" class="btn" hidden><i data-lucide="arrow-left-right"></i> Trocar câmera</button>
+          <label class="btn btn-ghost" for="provaFileInput"><i data-lucide="folder-open"></i> Enviar arquivo</label>
+          <input id="provaFileInput" type="file" accept="image/*" hidden />
+        </div>
+        <button id="provaBtnStart" class="btn btn-primary btn-block" disabled>Iniciar prova com foto</button>
+        <p id="provaMsg"></p>
+      </div>
+
+      <div id="provaStepQuiz" hidden>
+        <p class="modal-sub" id="provaQuizHint"></p>
+        <div id="provaQuestions"></div>
+        <button id="provaBtnSubmit" class="btn btn-primary btn-block">Entregar prova</button>
+        <p id="provaQuizMsg"></p>
+      </div>
+
+      <div id="provaStepResult" hidden>
+        <div id="provaResultBox"></div>
+        <div id="provaFeedback"></div>
+        <button id="provaBtnFinish" class="btn btn-primary btn-block">Fechar</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -627,6 +713,19 @@
   let photoBlob = null;
   let camStream = null;
   let watchTaskId = null;
+
+  /* Estado das provas semanais */
+  let currentProvas = [];
+  let currentGates = {};
+  let provaState = {
+    id: null,
+    week: null,
+    questions: [],
+    required: 8,
+    maxViolations: 3,
+    active: false,
+    awayTimer: null
+  };
 
   const $ = (id) => document.getElementById(id);
 
@@ -825,7 +924,7 @@
           <button class="btn" data-student="${s.id}">Ver evolução e registros</button>
         </div>
         <div class="s-progress">
-          <span>${s.done_tasks}/${s.total_tasks} de ${s.total_tasks} aulas concluídas (<b class="pct">${pct}%</b>) · ${s.sessions_count} registro(s) de aula · última atividade: ${last}</span>
+          <span>${s.done_tasks}/${s.total_tasks} de ${s.total_tasks} aulas concluídas (<b class="pct">${pct}%</b>) · ${s.sessions_count} registro(s) de aula · provas aprovadas: ${s.passed_provas}/${s.total_provas || 0} · última atividade: ${last}</span>
           <div class="bar"><div style="width:${pct}%"></div></div>
         </div>
       </div>`;
@@ -851,6 +950,7 @@
     $("admStudentMeta").textContent =
       s.email + " · " + (s.photo_consent ? "autorizou o registro de imagem" : "não autorizou o registro de imagem") + " · usuário desde " + formatDate(s.created_at);
     renderEvolution(d.weeks);
+    renderAdminProvas(d.provas || []);
     renderAdminRecords(d.sessions);
   }
 
@@ -864,6 +964,33 @@
         <h4>${escapeHtml(meta.title)}</h4>
         <p>${st.done}/${st.total} concluídos · <b>${pct}%</b></p>
         <div class="bar"><div style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("");
+    refreshIcons();
+  }
+
+  function renderAdminProvas(provas) {
+    const el = $("admProvas");
+    if (!provas.length) {
+      el.innerHTML = '<p class="history-empty">Nenhuma prova realizada por este aluno.</p>';
+      return;
+    }
+    const metaMap = WEEK_META;
+    el.innerHTML = provas.map((p) => {
+      const meta = metaMap[p.week] || { title: p.week };
+      let status;
+      if (p.status === "submitted" && p.passed) status = '<b style="color:var(--green)">Aprovado ✓</b>';
+      else if (p.status === "submitted") status = '<b style="color:var(--red)">Reprovado</b>';
+      else if (p.status === "canceled") status = '<span style="color:var(--muted)">Cancelada</span>';
+      else status = '<span style="color:var(--purple)">Em andamento</span>';
+      const score = (p.score !== null && p.score !== undefined) ? p.score + "/" + p.total : "—";
+      return `<div class="history-card" style="padding:12px 14px">
+        <div class="info" style="padding:0">
+          <b>${escapeHtml(meta.title)}</b>
+          <span>${status} · nota: <b>${score}</b></span>
+          <span>início: ${formatDate(p.started_at)}${p.submitted_at ? " · fim: " + formatDate(p.submitted_at) : ""}</span>
+          ${p.violations ? '<span>⚠ saiu da tela: ' + p.violations + 'x</span>' : ""}
+        </div>
       </div>`;
     }).join("");
     refreshIcons();
@@ -899,7 +1026,7 @@
       $("userbar").hidden = false;
       $("userName").textContent = "Olá, " + user.name;
       const tasks = await api("/tasks");
-      renderWeeks(tasks.tasks, tasks.progress, tasks.weeks);
+      renderWeeks(tasks.tasks, tasks.progress, tasks.weeks, tasks.gates, tasks.provas);
       const sessions = await api("/sessions");
       renderHistory(sessions.sessions);
     } catch (err) {
@@ -915,8 +1042,10 @@
     return task.video_url || fallback;
   }
 
-  function renderWeeks(tasks, progress, weeks) {
+  function renderWeeks(tasks, progress, weeks, gates, provas) {
     const order = ["s1","s2","s3","s4","s5","s6","s7","s8"];
+    currentGates = gates || {};
+    currentProvas = provas || [];
     const byWeek = {};
     tasks.forEach((t) => {
       (byWeek[t.week] = byWeek[t.week] || []).push(t);
@@ -929,24 +1058,58 @@
     $("weeks").innerHTML = weekKeys.map((wk) => {
       const meta = WEEK_META[wk] || { title: wk, focus: "" };
       const st = weeks[wk] || { total: 0, done: 0 };
+      const unlocked = !!currentGates[wk];
+      const pr = currentProvas.find((p) => p.week === wk);
+      const passed = pr && pr.status === "submitted" && pr.passed;
+      const inProgress = pr && pr.status === "in_progress";
+      const allDone = st.total > 0 && st.done === st.total;
+      const required = Math.ceil(15 * 0.5);
+
+      let provaBlock = `<button class="btn-prova" disabled>${unlocked ? "Complete a semana para fazer a prova" : "🔒 Semana bloqueada"}</button>`;
+      let statusExtra = "";
+      if (!unlocked) {
+        provaBlock = `<button class="btn-prova" disabled>🔒 Passe na prova da semana anterior</button>`;
+        statusExtra = `<span class="locked-note">🔒 bloqueada</span>`;
+      } else if (passed) {
+        provaBlock = `<button class="btn-prova" disabled>✓ Aprovado (${pr.score}/${pr.total})</button>`;
+        statusExtra = `<span class="ok-note">✓ Prova aprovada (${pr.score}/${pr.total})</span>`;
+      } else if (inProgress) {
+        provaBlock = `<button class="btn-prova btn-prova-live" data-prova-start="${wk}" data-resume="1">Continuar prova</button>`;
+        statusExtra = `<span class="live-note">Prova em andamento</span>`;
+      } else if (allDone) {
+        provaBlock = `<button class="btn-prova btn-prova-go" data-prova-start="${wk}">Fazer prova (15 questões)</button>`;
+        if (pr && pr.status === "submitted") {
+          statusExtra = `<span class="fail-note">Prova ${pr.score}/${pr.total} — precisa de ${required} acertos. Refazer!</span>`;
+        } else if (pr && pr.status === "canceled") {
+          statusExtra = `<span class="fail-note">Prova cancelada (saiu da tela). Tente novamente.</span>`;
+        } else {
+          statusExtra = `<span class="ok-note">Semana concluída — faça a prova para liberar a próxima!</span>`;
+        }
+      }
+
       const rows = byWeek[wk].map((t) => {
         const videoUrl = videoUrlFor(t);
+        const watchBtn = unlocked
+          ? `<button class="btn-watch" data-id="${t.id}" data-video="${escapeAttr(videoUrl)}"><i data-lucide="play"></i> Assistir aula</button>`
+          : `<button class="btn-watch" data-locked="1" title="Semana bloqueada"><i data-lucide="lock"></i> Bloqueado</button>`;
         return `<tr class="${t.done ? "done" : ""}" data-id="${t.id}">
           <td class="day">${t.day}</td>
           <td class="subj"><span class="tag ${t.tag}">${t.subject}</span></td>
           <td class="topic">${escapeHtml(t.topic)}</td>
-          <td class="actions">
-            <button class="btn-watch" data-id="${t.id}" data-video="${escapeAttr(videoUrl)}"><i data-lucide="play"></i> Assistir aula</button>
-          </td>
-          <td class="check"><input type="checkbox" data-id="${t.id}" ${t.done ? "checked" : ""} /></td>
+          <td class="actions">${watchBtn}</td>
+          <td class="check"><input type="checkbox" data-id="${t.id}" ${t.done ? "checked" : ""} ${unlocked ? "" : "disabled"} /></td>
         </tr>`;
       }).join("");
 
-      return `<div class="week">
+      return `<div class="week ${unlocked ? "" : "locked"}">
         <div class="week-head">
           <h3>${meta.title}</h3>
           <span class="focus">${meta.focus}</span>
-          <span class="status" data-status="${wk}"><b>${st.done}</b>/${st.total} concluído(s)</span>
+          <div class="week-stats">
+            <span class="status" data-status="${wk}"><b>${st.done}</b>/${st.total} concluído(s)</span>
+            <span class="status">${statusExtra}</span>
+            ${provaBlock}
+          </div>
         </div>
         <table>
           <thead><tr><th>Dia</th><th>Disciplina</th><th>Tópicos de estudo</th><th>Aula</th><th>Feito</th></tr></thead>
@@ -960,10 +1123,13 @@
     $("pct").textContent = pct + "%";
     refreshIcons();
 
-    document.querySelectorAll("#weeks .btn-watch").forEach((btn) => {
+    document.querySelectorAll("#weeks .btn-watch:not([data-locked])").forEach((btn) => {
       btn.addEventListener("click", () => openWatchModal(Number(btn.dataset.id), btn.dataset.video));
     });
-    document.querySelectorAll('#weeks input[type="checkbox"]').forEach((cb) => {
+    document.querySelectorAll("#weeks .btn-watch[data-locked]").forEach((btn) => {
+      btn.addEventListener("click", showProvaLockedTip);
+    });
+    document.querySelectorAll('#weeks input[type="checkbox"]:not(:disabled)').forEach((cb) => {
       cb.addEventListener("change", async () => {
         const row = cb.closest("tr");
         cb.disabled = true;
@@ -981,6 +1147,17 @@
         }
       });
     });
+    document.querySelectorAll("#weeks [data-prova-start]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wk = btn.dataset.provaStart;
+        if (btn.dataset.resume) continueProva(wk);
+        else openProvaIntro(wk);
+      });
+    });
+  }
+
+  function showProvaLockedTip() {
+    showBanner("Essa semana ainda está bloqueada. Conclua a semana anterior e passe na prova dela para liberar.", "err");
   }
 
   function updateWeekStatus(weeks) {
@@ -1245,6 +1422,393 @@
 
   modal.addEventListener("click", (e) => {
     if (e.target === modal) { stopCam(); modal.hidden = true; }
+  });
+
+  /* ---------- PROVA SEMANAL ---------- */
+  const pModal = $("provaModal");
+  const pTitle = $("provaTitle");
+  const pStepIntro = $("provaStepIntro");
+  const pStepQuiz = $("provaStepQuiz");
+  const pStepResult = $("provaStepResult");
+  const pVideo = $("provaVideo");
+  const pCanvas = $("provaCanvas");
+  const pPreview = $("provaPreview");
+  const pMsg = $("provaMsg");
+  const pQuizMsg = $("provaQuizMsg");
+  const LETTERS = ["A","B","C","D","E"];
+  let pCamStream = null;
+  let pCamReady = false;
+  let pFacingMode = "user";
+  let pPhotoBlob = null;
+
+  function pShowStep(step) {
+    pStepIntro.hidden = step !== "intro";
+    pStepQuiz.hidden = step !== "quiz";
+    pStepResult.hidden = step !== "result";
+  }
+
+  function pSetMsg(el, text) { el.textContent = text || ""; }
+
+  function openProvaIntro(week) {
+    provaState.id = null;
+    provaState.week = week;
+    provaState.active = false;
+    pPhotoBlob = null;
+    pCamReady = false;
+    pFacingMode = "user";
+    pPreview.hidden = true;
+    pPreview.removeAttribute("src");
+    pCanvas.hidden = true;
+    pVideo.hidden = false;
+    $("provaFileInput").value = "";
+    pSetMsg(pMsg, "");
+    $("provaBtnSnap").hidden = false;
+    $("provaBtnSnap").disabled = true;
+    $("provaBtnRetake").hidden = true;
+    $("provaBtnFlip").hidden = true;
+    $("provaBtnStart").disabled = true;
+    const num = week.replace("s", "");
+    pTitle.textContent = "Prova da " + (WEEK_META[week] ? WEEK_META[week].title : "Semana " + num);
+    $("provaIntroText").textContent =
+      "Semana concluída! Antes de começar, tire uma foto para comprovar sua identidade. " +
+      "A prova tem 15 questões (5 alternativas por questão). Você precisa de " + provaState.required +
+      " acertos (50%) para passar. Não saia da tela durante a prova: saídas são registradas e podem cancelá-la.";
+    pShowStep("intro");
+    pModal.hidden = false;
+    startProvaCam();
+  }
+
+  function continueProva(week) {
+    const pr = currentProvas.find((p) => p.week === week);
+    if (!pr) return;
+    provaState.id = pr.id;
+    provaState.week = week;
+    pSetMsg(pMsg, "Retomando a prova...");
+    pShowStep("intro");
+    pModal.hidden = false;
+    loadProvaQuiz(pr.id);
+  }
+
+  async function loadProvaQuiz(id) {
+    try {
+      const data = await api("/provas/" + id);
+      setupProvaSession(data);
+      showProvaQuiz();
+    } catch (err) {
+      pSetMsg(pMsg, err.message);
+      if (err.status === 409) {
+        pSetMsg(pMsg, "Esta prova foi encerrada. Feche e inicie uma nova tentativa.");
+      }
+    }
+  }
+
+  function setupProvaSession(data) {
+    provaState.id = data.prova.id;
+    provaState.week = data.prova.week;
+    provaState.questions = data.questions || [];
+    provaState.required = data.required || Math.ceil(15 * 0.5);
+    provaState.maxViolations = data.maxViolations || 3;
+    provaState.active = true;
+    provaState.awayTimer = null;
+  }
+
+  async function startProvaWithPhoto() {
+    if (!pPhotoBlob) return;
+    const btn = $("provaBtnStart");
+    btn.disabled = true;
+    pSetMsg(pMsg, "Iniciando prova...");
+    try {
+      const fd = new FormData();
+      fd.append("week", provaState.week);
+      const ext = pPhotoBlob.type === "image/png" ? "png" : pPhotoBlob.type === "image/webp" ? "webp" : "jpg";
+      fd.append("photo", pPhotoBlob, "foto." + ext);
+      const data = await api("/provas/start", { method: "POST", body: fd });
+      setupProvaSession(data);
+      showProvaQuiz();
+    } catch (err) {
+      pSetMsg(pMsg, err.message);
+      btn.disabled = false;
+    }
+  }
+
+  function showProvaQuiz() {
+    pSetMsg(pMsg, "");
+    pSetMsg(pQuizMsg, "");
+    renderProvaQuiz();
+    pShowStep("quiz");
+    stopProvaCam();
+  }
+
+  function renderProvaQuiz() {
+    const q = provaState.questions;
+    pSetMsg($("provaQuizHint"), `Responda as ${q.length} questões. Acertos mínimos: ${provaState.required}. Não saia da tela!`);
+    $("provaQuestions").innerHTML = q.map((item, qi) => {
+      const opts = item.o.map((text, oi) => `
+        <label class="opt" data-q="${qi}" data-o="${oi}">
+          <input type="radio" name="pq${qi}" value="${oi}" />
+          <span><b>${LETTERS[oi]})</b> ${escapeHtml(text)}</span>
+        </label>`).join("");
+      return `<div class="prova-q" data-qindex="${qi}">
+        <div class="qa">${qi + 1}. ${escapeHtml(item.q)}</div>
+        <div>${opts}</div>
+      </div>`;
+    }).join("");
+
+    document.querySelectorAll("#provaQuestions .opt").forEach((label) => {
+      label.addEventListener("click", () => {
+        label.closest(".prova-q").querySelectorAll(".opt").forEach((l) => l.classList.remove("selected"));
+        label.classList.add("selected");
+      });
+    });
+    refreshIcons();
+  }
+
+  async function submitProvaQuiz() {
+    const q = provaState.questions.length;
+    const answers = q.map((_, qi) => {
+      const sel = document.querySelector(`#provaQuestions input[name="pq${qi}"]:checked`);
+      return sel ? Number(sel.value) : null;
+    });
+    if (answers.some((a) => a === null)) {
+      pSetMsg(pQuizMsg, "Responda todas as questões antes de entregar.");
+      return;
+    }
+    const btn = $("provaBtnSubmit");
+    btn.disabled = true;
+    pSetMsg(pQuizMsg, "Corrigindo prova...");
+    try {
+      const data = await api("/provas/" + provaState.id + "/submit", {
+        method: "POST",
+        body: { answers }
+      });
+      provaState.active = false;
+      clearProvaAwayTimer();
+      showProvaResult(data);
+    } catch (err) {
+      pSetMsg(pQuizMsg, err.message);
+      btn.disabled = false;
+    }
+  }
+
+  function showProvaResult(data) {
+    const passed = data.passed;
+    const box = $("provaResultBox");
+    box.className = "prova-result-box " + (passed ? "passed" : "failed");
+    const num = provaState.week.replace("s", "");
+    box.innerHTML =
+      "<h3>" + (passed ? "Parabéns, você passou!" : "Não foi desta vez") + "</h3>" +
+      "<div class='score'>" + data.score + "/" + data.total + "</div>" +
+      "<p>Mínimo necessário: " + data.required + " acertos (50%).</p>" +
+      (passed
+        ? (num === "8"
+          ? "<p>Você concluiu todo o cronograma! Parabéns.</p>"
+          : "<p>A semana " + (parseInt(num, 10) + 1) + " foi liberada. Boa prova!</p>")
+        : "<p>Refaça a prova quando estiver pronto. Reestude os vídeos da semana.</p>");
+
+    const fb = data.feedback || [];
+    $("provaFeedback").innerHTML = fb.map((f, i) => {
+      const qnum = i + 1;
+      if (f.correct) {
+        return `<div class="feedback-item ok"><span class="badge">✓</span>
+          <div><b>${qnum}. ${escapeHtml(f.q)}</b><br>Certa.</div></div>`;
+      }
+      const selectedText = (f.selectedIndex !== null && f.selectedIndex >= 0)
+        ? "Você marcou: <b>" + LETTERS[f.selectedIndex] + "</b>"
+        : "Você marcou: —";
+      return `<div class="feedback-item no"><span class="badge">✕</span>
+        <div><b>${qnum}. ${escapeHtml(f.q)}</b><br>${selectedText} · Correta: <b>${LETTERS[f.correctIndex]}</b><br>
+        <span style="color:var(--muted)">${escapeHtml(f.explanation || "")}</span></div></div>`;
+    }).join("");
+    pShowStep("result");
+  }
+
+  function closeProvaModal(interactive) {
+    if (provaState.active && provaState.id) {
+      provaState.active = false;
+      clearProvaAwayTimer();
+      api("/provas/" + provaState.id + "/cancel", { method: "POST" }).catch(() => {});
+    }
+    provaState.active = false;
+    clearProvaAwayTimer();
+    stopProvaCam();
+    pModal.hidden = true;
+    loadApp().catch(() => {});
+  }
+
+  $("closeProvaModal").addEventListener("click", () => closeProvaModal(true));
+  pModal.addEventListener("click", (e) => {
+    if (e.target === pModal) closeProvaModal(true);
+  });
+  $("provaBtnFinish").addEventListener("click", () => closeProvaModal(true));
+
+  /* Câmera da prova */
+  function pCamSupported() {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  async function startProvaCam() {
+    if (!pCamSupported()) {
+      pSetMsg(pMsg, window.isSecureContext
+        ? "Este navegador não suporta acesso à câmera. Use \"Enviar arquivo\"."
+        : "A câmera só funciona em localhost ou HTTPS. Use \"Enviar arquivo\".");
+      $("provaBtnSnap").disabled = true;
+      return;
+    }
+    stopProvaCam();
+    pCamReady = false;
+    $("provaBtnSnap").disabled = true;
+    pVideo.hidden = false;
+    pSetMsg(pMsg, "Solicitando permissão da câmera...");
+    try {
+      pCamStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: pFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      pVideo.srcObject = pCamStream;
+      await pVideo.play().catch(() => {});
+      pCamReady = true;
+      $("provaBtnSnap").disabled = false;
+      pSetMsg(pMsg, "");
+      updateProvaFlipButton();
+    } catch (err) {
+      pSetMsg(pMsg, "Não foi possível acessar a câmera. Use \"Enviar arquivo\".");
+      $("provaBtnSnap").disabled = true;
+    }
+  }
+
+  function stopProvaCam() {
+    if (pCamStream) {
+      pCamStream.getTracks().forEach((t) => t.stop());
+      pCamStream = null;
+    }
+    pCamReady = false;
+    if (pVideo.srcObject) pVideo.srcObject = null;
+  }
+
+  async function updateProvaFlipButton() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      $("provaBtnFlip").hidden = cams.length < 2;
+    } catch {
+      $("provaBtnFlip").hidden = true;
+    }
+  }
+
+  $("provaBtnSnap").addEventListener("click", () => {
+    if (!pCamStream || !pCamReady) { startProvaCam(); return; }
+    const w = pVideo.videoWidth, h = pVideo.videoHeight;
+    if (!w || !h) {
+      pSetMsg(pMsg, "A câmera ainda está iniciando. Tente novamente em instantes.");
+      return;
+    }
+    pCanvas.width = w;
+    pCanvas.height = h;
+    pCanvas.getContext("2d").drawImage(pVideo, 0, 0, w, h);
+    pCanvas.toBlob((blob) => {
+      if (!blob) { pSetMsg(pMsg, "Não foi possível capturar a foto."); return; }
+      pPhotoBlob = blob;
+      pVideo.hidden = true;
+      pCanvas.hidden = true;
+      pPreview.src = URL.createObjectURL(blob);
+      pPreview.hidden = false;
+      $("provaBtnStart").disabled = false;
+      $("provaBtnSnap").hidden = true;
+      $("provaBtnRetake").hidden = false;
+      pSetMsg(pMsg, "Foto capturada. Inicie a prova quando estiver pronto.");
+    }, "image/jpeg", 0.85);
+  });
+
+  $("provaBtnRetake").addEventListener("click", () => {
+    pPhotoBlob = null;
+    pPreview.hidden = true;
+    pPreview.removeAttribute("src");
+    pCanvas.hidden = true;
+    $("provaBtnStart").disabled = true;
+    $("provaBtnRetake").hidden = true;
+    $("provaBtnSnap").hidden = false;
+    pSetMsg(pMsg, "");
+    if (pCamStream && pCamReady) {
+      pVideo.hidden = false;
+      $("provaBtnSnap").disabled = false;
+    } else {
+      startProvaCam();
+    }
+  });
+
+  $("provaBtnFlip").addEventListener("click", () => {
+    pFacingMode = pFacingMode === "user" ? "environment" : "user";
+    startProvaCam();
+  });
+
+  $("provaFileInput").addEventListener("change", async () => {
+    const file = $("provaFileInput").files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      pSetMsg(pMsg, "O arquivo deve ser uma imagem (JPG, PNG ou WebP).");
+      return;
+    }
+    pSetMsg(pMsg, "Preparando imagem...");
+    const img = await shrinkImage(file);
+    if (img.size > MAX_PHOTO_BYTES) {
+      pSetMsg(pMsg, "A foto deve ter no máximo 4 MB.");
+      return;
+    }
+    pPhotoBlob = img;
+    pVideo.hidden = true;
+    pCanvas.hidden = true;
+    pPreview.src = URL.createObjectURL(img);
+    pPreview.hidden = false;
+    $("provaBtnStart").disabled = false;
+    $("provaBtnSnap").hidden = true;
+    $("provaBtnRetake").hidden = false;
+    pSetMsg(pMsg, "Imagem carregada. Inicie a prova quando estiver pronto.");
+  });
+
+  $("provaBtnStart").addEventListener("click", startProvaWithPhoto);
+  $("provaBtnSubmit").addEventListener("click", submitProvaQuiz);
+
+  /* Anti-cola: detecta saída da tela */
+  function setProvaAwayTimer() {
+    if (provaState.awayTimer || !provaState.active || !provaState.id) return;
+    provaState.awayTimer = setTimeout(handleProvaLeave, 2000);
+  }
+
+  function clearProvaAwayTimer() {
+    if (provaState.awayTimer) {
+      clearTimeout(provaState.awayTimer);
+      provaState.awayTimer = null;
+    }
+  }
+
+  async function handleProvaLeave() {
+    provaState.awayTimer = null;
+    if (!provaState.active || !provaState.id) return;
+    try {
+      const r = await api("/provas/" + provaState.id + "/violation", { method: "POST" });
+      if (r.canceled) {
+        provaState.active = false;
+        pSetMsg(pMsg, "Prova cancelada: você saiu da tela (" + r.violations + "/" + r.max + "). Inicie uma nova tentativa quando estiver pronto.");
+        pSetMsg(pQuizMsg, "");
+        stopProvaCam();
+        pShowStep("intro");
+        pModal.hidden = false;
+      } else {
+        pSetMsg(pQuizMsg, "Atenção: detectamos que você saiu da tela (" + r.violations + "/" + r.max + "). A prova será cancelada se isso acontecer mais vezes.");
+      }
+    } catch (e) { /* ignora */ }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!provaState.active || !provaState.id) return;
+    if (document.hidden) setProvaAwayTimer();
+    else clearProvaAwayTimer();
+  });
+  window.addEventListener("blur", () => {
+    if (provaState.active && provaState.id) setProvaAwayTimer();
+  });
+  window.addEventListener("focus", () => {
+    if (provaState.active && provaState.id) clearProvaAwayTimer();
   });
 
   /* ---------- INIT ---------- */

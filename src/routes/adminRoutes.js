@@ -5,6 +5,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import {
   findUserById,
   getWeekStats,
+  listProvasForAdmin,
   listSessions,
   listStudents
 } from "../database.js";
@@ -43,7 +44,8 @@ router.get("/students/:id", requireAdmin, asyncHandler(async (req, res) => {
   }
   const weeks = await getWeekStats(id);
   const sessions = await listSessions(id);
-  return res.json({ student, weeks, sessions });
+  const provas = await listProvasForAdmin(id);
+  return res.json({ student, weeks, sessions, provas });
 }));
 
 export default router;
