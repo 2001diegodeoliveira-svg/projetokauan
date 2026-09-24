@@ -1311,14 +1311,14 @@
   }
 
   async function startCam() {
-    const screenActive = !!(screenRecorder && screenRecorder.state === "recording");
-    if (!screenActive) resetScreenRecording();
+    const liveScreen = !!(screenStream && screenStream.getVideoTracks().length && screenStream.getVideoTracks()[0].readyState === "live");
+    if (!liveScreen) resetScreenRecording();
     camReady = false;
     $("btnSnap").disabled = true;
     $("btnConfirmWatch").disabled = true;
     camVideo.hidden = false;
     $("recStatus").hidden = true;
-    if (!screenActive) {
+    if (!liveScreen) {
       if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
         $("watchMsg").textContent = "A gravação de tela é obrigatória e só funciona em localhost ou HTTPS. Acesse via localhost ou HTTPS e tente de novo.";
         $("btnSnap").disabled = true;
@@ -1352,7 +1352,7 @@
       $("watchMsg").textContent = screenGranted ? "Compartilhamento liberado. Tire a foto para iniciar a gravação." : "";
       updateFlipButton();
     } catch (err) {
-      if (!screenActive) stopScreenRecording(true);
+      if (!liveScreen) stopScreenRecording(true);
       handleCamError(err);
     }
   }
