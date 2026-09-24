@@ -51,6 +51,10 @@ export async function initDb() {
       photo_mime TEXT,
       video_url TEXT,
       note TEXT,
+      recording_data BYTEA,
+      recording_mime TEXT,
+      recording_complete BOOLEAN NOT NULL DEFAULT FALSE,
+      screen_recorded BOOLEAN NOT NULL DEFAULT FALSE,
       watched_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
@@ -58,6 +62,10 @@ export async function initDb() {
 
     ALTER TABLE sessions ADD COLUMN IF NOT EXISTS photo_data BYTEA;
     ALTER TABLE sessions ADD COLUMN IF NOT EXISTS photo_mime TEXT;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recording_data BYTEA;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recording_mime TEXT;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recording_complete BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS screen_recorded BOOLEAN NOT NULL DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS provas (
       id SERIAL PRIMARY KEY,
@@ -229,6 +237,8 @@ export async function getPhotoByPath(photoPath) {
 export async function getSessionById(id, userId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.user_id, s.task_id, s.photo_path, s.video_url, s.note, s.watched_at,
+            (s.recording_data IS NOT NULL) AS has_recording,
+            s.recording_mime, s.recording_complete, s.screen_recorded,
             t.week, t.day, t.subject, t.tag, t.topic
      FROM sessions s
      LEFT JOIN tasks t ON t.id = s.task_id
@@ -241,6 +251,8 @@ export async function getSessionById(id, userId) {
 export async function listSessions(userId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.task_id, s.photo_path, s.video_url, s.note, s.watched_at,
+            (s.recording_data IS NOT NULL) AS has_recording,
+            s.recording_mime, s.recording_complete, s.screen_recorded,
             t.week, t.day, t.subject, t.tag, t.topic
      FROM sessions s
      LEFT JOIN tasks t ON t.id = s.task_id
@@ -249,6 +261,37 @@ export async function listSessions(userId) {
     [userId]
   );
   return rows;
+}
+
+export async function getSessionRecordingData(sessionId) {
+  const { rows } = await pool.query(
+    `SELECT recording_data, recording_mime FROM sessions WHERE id = $1`,
+    [sessionId]
+  );
+  return rows[0] || null;
+}
+
+export async function getSessionRecordingForUser(sessionId, userId) {
+  const { rows } = await pool.query(
+    `SELECT recording_data, recording_mime FROM sessions WHERE id = $1 AND user_id = $2`,
+    [sessionId, userId]
+  );
+  return rows[0] || null;
+}
+
+export async function appendRecording(sessionId, userId, chunk, mime, final) {
+  const { rows } = await pool.query(
+    `UPDATE sessions
+     SET recording_data = COALESCE(recording_data, ''::bytea) || $3,
+         recording_mime = COALESCE(recording_mime, $4),
+         screen_recorded = TRUE,
+         recording_complete = CASE WHEN $5::boolean THEN TRUE ELSE recording_complete END
+     WHERE id = $1 AND user_id = $2
+     RETURNING id, recording_mime, recording_complete, screen_recorded,
+               OCTET_LENGTH(COALESCE(recording_data, '')) AS recording_bytes`,
+    [sessionId, userId, chunk, mime, Boolean(final)]
+  );
+  return rows[0] || null;
 }
 
 export async function listStudents() {

@@ -79,8 +79,8 @@ app.use((_req, res) => {
 app.use((err, _req, res, _next) => {
   if (err instanceof multer.MulterError) {
     const message = err.code === "LIMIT_FILE_SIZE"
-      ? "A foto deve ter no máximo 4 MB"
-      : "Erro no envio da foto";
+      ? "O arquivo enviado deve ter no máximo 4 MB"
+      : "Erro no envio do arquivo";
     return res.status(400).json({ error: message });
   }
   if (err && (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT")) {

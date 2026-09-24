@@ -9,7 +9,9 @@ import {
   markTaskDone,
   createSession,
   listSessions,
-  getPhotoByPath
+  getPhotoByPath,
+  appendRecording,
+  getSessionRecordingForUser
 } from "../database.js";
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -20,6 +22,16 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     const ok = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
     if (!ok) return cb(new Error("A foto deve ser JPEG, PNG ou WebP"));
+    cb(null, true);
+  }
+});
+
+const recUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PHOTO_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^video\/webm$/.test(file.mimetype);
+    if (!ok) return cb(new Error("A gravação de tela deve ser WebM (video/webm)"));
     cb(null, true);
   }
 });
@@ -75,6 +87,36 @@ router.get("/photo/:file", requireAuth, asyncHandler(async (req, res) => {
   res.set("Content-Type", photo.photo_mime || "image/jpeg");
   res.set("Cache-Control", "private, max-age=86400");
   return res.send(photo.photo_data);
+}));
+
+router.post("/:id/record-chunk", requireAuth, recUpload.single("chunk"), asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Id de sessão inválido" });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "Trecho de gravação obrigatório" });
+  }
+  const final = req.body.final === "true" || req.body.final === "1";
+  const updated = await appendRecording(id, req.user.id, req.file.buffer, req.file.mimetype, final);
+  if (!updated) {
+    return res.status(404).json({ error: "Sessão não encontrada" });
+  }
+  return res.json({ ok: true, session: updated });
+}));
+
+router.get("/:id/recording", requireAuth, asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  const rec = await getSessionRecordingForUser(id, req.user.id);
+  if (!rec) {
+    return res.status(404).json({ error: "Gravação não encontrada" });
+  }
+  if (!rec.recording_data) {
+    return res.status(404).json({ error: "Esta sessão não possui gravação de tela" });
+  }
+  res.set("Content-Type", rec.recording_mime || "video/webm");
+  res.set("Cache-Control", "private, max-age=86400");
+  return res.send(rec.recording_data);
 }));
 
 export { MAX_PHOTO_BYTES };

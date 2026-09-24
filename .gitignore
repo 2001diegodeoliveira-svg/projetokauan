@@ -2,6 +2,7 @@ node_modules/
 data/*.db
 data/*.db-journal
 data/photos/
+foto/
 .server.pid
 .env
 .vercel

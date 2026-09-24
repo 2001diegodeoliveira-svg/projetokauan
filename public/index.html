@@ -413,6 +413,34 @@
     .history { grid-template-columns: 1fr; }
     .modal-actions .btn { flex: 1 1 100%; }
   }
+
+  /* Indicador de gravação de tela */
+  .rec-status { color: var(--green); font-weight: 600; }
+  .rec-pill {
+    position: fixed; right: 16px; bottom: 16px; z-index: 999;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 8px 12px 8px 14px;
+    box-shadow: var(--shadow); font-size: 0.85rem; font-weight: 600;
+    color: var(--text);
+  }
+  .rec-pill .rec-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--red); flex: none;
+    animation: recBlink 1s steps(2, start) infinite;
+  }
+  @keyframes recBlink { to { visibility: hidden; } }
+  .rec-pill .rec-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .rec-pill .btn { padding: 6px 12px; font-size: 0.8rem; }
+  .rec-link {
+    display: inline-block; margin-top: 8px; font-size: 0.85rem;
+    color: var(--accent); font-weight: 600; text-decoration: none;
+  }
+  .rec-link:hover { text-decoration: underline; }
+  .rec-video {
+    width: 100%; max-width: 300px; max-height: 170px;
+    border-radius: 10px; background: #111; margin-bottom: 8px;
+  }
 </style>
 </head>
 <body>
@@ -629,7 +657,8 @@
         <button id="closeModal" title="Fechar">×</button>
       </div>
       <p class="modal-sub" id="watchTopic"></p>
-      <p class="modal-sub" id="camHint">Ao abrir, autorize o uso da câmera. Sem câmera, use "Enviar arquivo".</p>
+      <p class="modal-sub" id="camHint">Ao abrir, autorize a câmera e a <b>gravação de tela</b> (obrigatórias). Sem câmera, use "Enviar arquivo".</p>
+      <p class="modal-sub rec-status" id="recStatus" hidden>● Gravando sua tela...</p>
       <div class="cam-wrap">
         <video id="camVideo" autoplay playsinline muted></video>
         <canvas id="snapCanvas" hidden></canvas>
@@ -689,6 +718,14 @@
     </div>
   </div>
 
+  <!-- PILL GRAVAÇÃO DE TELA -->
+  <div id="recPill" class="rec-pill" hidden>
+    <span class="rec-dot"></span>
+    <span>Gravando aula</span>
+    <span class="rec-time" id="recPillTime">00:00</span>
+    <button id="btnEndRecording" class="btn">Concluir aula</button>
+  </div>
+
 </div>
 
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -713,6 +750,20 @@
   let photoBlob = null;
   let camStream = null;
   let watchTaskId = null;
+
+  /* Estado da gravação de tela */
+  let screenStream = null;
+  let screenRecorder = null;
+  let screenChunks = [];
+  let screenGranted = false;
+  let endRequested = false;
+  let recordSessionId = null;
+  let recordUploadRunning = false;
+  let recordingClassActive = false;
+  let recordDoneHandled = false;
+  let screenUploadTimer = null;
+  let recordingElapsedSec = 0;
+  let recGen = 0;
 
   /* Estado das provas semanais */
   let currentProvas = [];
@@ -791,6 +842,7 @@
     $("authView").hidden = false;
     $("authMsg").textContent = msg || (showForm ? "Sessão encerrada." : "Sessão expirada. Entre novamente.");
     stopCam();
+    stopScreenRecording(true);
   }
 
   $("tabLogin").addEventListener("click", () => switchTab("login"));
@@ -884,6 +936,7 @@
     $("authView").hidden = false;
     showBanner("");
     stopCam();
+    stopScreenRecording(true);
   }
 
   async function showAdmin() {
@@ -1006,10 +1059,16 @@
     el.innerHTML = sessions.map((s) => `
       <div class="history-card">
         <img src="${escapeAttr(s.photo_path)}?token=${encodeURIComponent(adminToken)}" alt="Registro de ${escapeAttr(studentName)}" loading="lazy" />
+        ${s.has_recording
+          ? '<video class="rec-video" controls preload="metadata" src="/api/admin/sessions/' + s.id + '/recording?token=' + encodeURIComponent(adminToken) + '"></video>'
+          : ""}
         <div class="info">
           <b>${escapeHtml(s.subject)} · ${escapeHtml(s.day)}</b>
           <span>${formatDate(s.watched_at)}</span>
           ${s.note ? '<br><span>📝 ' + escapeHtml(s.note) + '</span>' : ""}
+          ${s.has_recording
+            ? '<br><span>' + (s.screen_recorded ? "gravação de tela" : "gravação de tela") + (s.recording_complete ? " · completa" : " · parcial") + '</span>'
+            : '<br><span class="locked-note">sem gravação de tela</span>'}
         </div>
       </div>
     `).join("");
@@ -1180,6 +1239,9 @@
           <b>${escapeHtml(s.subject)} · ${escapeHtml(s.day)}</b>
           <span>${formatDate(s.watched_at)}</span>
           ${s.note ? '<br><span>📝 ' + escapeHtml(s.note) + '</span>' : ""}
+          ${s.has_recording
+            ? '<br><a class="rec-link" target="_blank" href="/api/sessions/' + s.id + '/recording?token=' + encodeURIComponent(token) + '">▶ Ver gravação de tela' + (s.recording_complete ? "" : " (parcial)") + '</a>'
+            : ""}
         </div>
       </div>
     `).join("");
@@ -1212,15 +1274,12 @@
   let camReady = false;
   let facingMode = "user";
 
-  function camSupported() {
-    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-  }
-
   function openWatchModal(id, videoUrl) {
     watchTaskId = id;
     photoBlob = null;
     camReady = false;
     facingMode = "user";
+    resetScreenRecording();
     photoPreview.hidden = true;
     photoPreview.removeAttribute("src");
     snapCanvas.hidden = true;
@@ -1228,6 +1287,7 @@
     $("fileInput").value = "";
     $("noteInput").value = "";
     $("watchMsg").textContent = "";
+    $("recStatus").hidden = true;
     $("btnConfirmWatch").disabled = true;
     $("btnSnap").hidden = false;
     $("btnSnap").disabled = true;
@@ -1240,18 +1300,36 @@
   }
 
   async function startCam() {
-    if (!camSupported()) {
-      $("watchMsg").textContent = window.isSecureContext
-        ? "Este navegador não suporta acesso à câmera. Use \"Enviar arquivo\"."
-        : "A câmera só funciona em localhost ou HTTPS. Use \"Enviar arquivo\" ou acesse via localhost.";
-      $("btnSnap").disabled = true;
-      return;
-    }
-    stopCam();
+    const screenActive = !!(screenRecorder && screenRecorder.state === "recording");
+    if (!screenActive) resetScreenRecording();
     camReady = false;
     $("btnSnap").disabled = true;
+    $("btnConfirmWatch").disabled = true;
     camVideo.hidden = false;
-    $("watchMsg").textContent = "Solicitando permissão da câmera...";
+    $("recStatus").hidden = true;
+    if (!screenActive) {
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        $("watchMsg").textContent = "A gravação de tela é obrigatória e só funciona em localhost ou HTTPS. Acesse via localhost ou HTTPS e tente de novo.";
+        $("btnSnap").disabled = true;
+        return;
+      }
+      $("watchMsg").textContent = "Solicitando permissão da câmera e da gravação de tela...";
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 12 } },
+          audio: false
+        });
+        startScreenRecorder();
+        screenGranted = true;
+      } catch (err) {
+        handleScreenError(err);
+        return;
+      }
+    }
+    if (screenGranted) {
+      $("recStatus").hidden = false;
+      $("recStatus").textContent = "● Gravando sua tela...";
+    }
     try {
       camStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 } },
@@ -1261,11 +1339,58 @@
       await camVideo.play().catch(() => {});
       camReady = true;
       $("btnSnap").disabled = false;
-      $("watchMsg").textContent = "";
+      $("watchMsg").textContent = screenGranted ? "● Gravando sua tela. Tire a foto para registrar." : "";
       updateFlipButton();
     } catch (err) {
+      if (!screenActive) stopScreenRecording(true);
       handleCamError(err);
     }
+  }
+
+  function pickRecorderMime() {
+    const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+    for (const c of candidates) {
+      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+    }
+    return "";
+  }
+
+  function startScreenRecorder() {
+    if (!screenStream || typeof MediaRecorder === "undefined") return;
+    const mime = pickRecorderMime();
+    const opts = { videoBitsPerSecond: 350000 };
+    if (mime) opts.mimeType = mime;
+    const rec = new MediaRecorder(screenStream, opts);
+    const myGen = recGen;
+    rec.ondataavailable = (e) => {
+      if (myGen !== recGen) return;
+      if (e.data && e.data.size > 0) {
+        screenChunks.push({ blob: e.data, final: endRequested });
+        if (recordSessionId) scheduleFlush();
+      }
+    };
+    rec.onerror = () => {};
+    try { rec.start(10000); } catch { try { rec.start(); } catch {} }
+    screenRecorder = rec;
+  }
+
+  function handleScreenError(err) {
+    const name = err && err.name;
+    screenGranted = false;
+    stopScreenRecording(true);
+    $("recStatus").hidden = true;
+    let msg = "A gravação de tela é obrigatória e não foi possível iniciar. Ela só funciona em localhost ou HTTPS.";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError" || name === "SecurityError") {
+      msg = "Gravação de tela negada. Ela é obrigatória para registrar a aula. Toque no cadeado do navegador, libere o compartilhamento de tela e tente de novo.";
+    } else if (name === "NotReadableError" || name === "AbortError") {
+      msg = "Não foi possível iniciar a gravação de tela. Feche outros programas de captura e tente de novo.";
+    } else if (name === "TimeoutError") {
+      msg = "Tempo esgotado para selecionar a tela/janela. Faça a seleção do compartilhamento e tente de novo.";
+    }
+    $("watchMsg").textContent = msg;
+    $("btnSnap").disabled = true;
+    $("btnConfirmWatch").disabled = true;
+    photoBlob = null;
   }
 
   function handleCamError(err) {
@@ -1299,6 +1424,128 @@
     }
     camReady = false;
     if (camVideo.srcObject) camVideo.srcObject = null;
+  }
+
+  function resetScreenRecording() {
+    recGen++;
+    stopScreenRecording(true);
+    screenGranted = false;
+    endRequested = false;
+    recordingClassActive = false;
+    recordDoneHandled = false;
+    recordUploadRunning = false;
+    if (screenUploadTimer) { clearInterval(screenUploadTimer); screenUploadTimer = null; }
+    recordingElapsedSec = 0;
+    $("recPill").hidden = true;
+  }
+
+  function stopScreenRecording(discard) {
+    const rec = screenRecorder;
+    if (rec && rec.state !== "inactive") {
+      try { rec.stop(); } catch {}
+    }
+    screenRecorder = null;
+    if (screenStream) {
+      screenStream.getTracks().forEach((t) => t.stop());
+      screenStream = null;
+    }
+    if (discard) {
+      screenChunks = [];
+      recordSessionId = null;
+      endRequested = false;
+    }
+  }
+
+  function scheduleFlush() {
+    if (!recordSessionId || recordUploadRunning) return;
+    if (!screenChunks.length) {
+      if (endRequested) onRecordDone();
+      return;
+    }
+    recordUploadRunning = true;
+    flushAllChunks()
+      .then(() => {
+        if (endRequested && !screenChunks.length) onRecordDone();
+      })
+      .catch(() => {})
+      .finally(() => {
+        recordUploadRunning = false;
+        scheduleFlush();
+      });
+  }
+
+  async function flushAllChunks() {
+    while (screenChunks.length) {
+      const item = screenChunks.shift();
+      const fd = new FormData();
+      fd.append("chunk", item.blob, "rec.webm");
+      if (item.final) fd.append("final", "true");
+      try {
+        await api("/sessions/" + recordSessionId + "/record-chunk", { method: "POST", body: fd });
+      } catch (err) {
+        screenChunks.unshift(item);
+        throw err;
+      }
+    }
+  }
+
+  function onRecordDone() {
+    if (recordDoneHandled) return;
+    recordDoneHandled = true;
+    if (screenUploadTimer) { clearInterval(screenUploadTimer); screenUploadTimer = null; }
+    $("recPill").hidden = true;
+    recordSessionId = null;
+    showBanner("Aula registrada com gravação de tela.");
+    loadApp();
+  }
+
+  function updateRecPill() {
+    const m = Math.floor(recordingElapsedSec / 60);
+    const s = recordingElapsedSec % 60;
+    $("recPillTime").textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+
+  function startClassRecordingUI(videoUrl) {
+    recordingClassActive = true;
+    recordingElapsedSec = 0;
+    recordDoneHandled = false;
+    updateRecPill();
+    $("recPill").hidden = false;
+    $("btnEndRecording").disabled = false;
+    scheduleFlush();
+    if (screenUploadTimer) clearInterval(screenUploadTimer);
+    screenUploadTimer = setInterval(() => {
+      recordingElapsedSec++;
+      updateRecPill();
+      scheduleFlush();
+    }, 1000);
+    if (videoUrl) window.open(videoUrl, "_blank");
+  }
+
+  $("btnEndRecording").addEventListener("click", endClassRecording);
+
+  function endClassRecording() {
+    if (!recordingClassActive) return;
+    recordingClassActive = false;
+    endRequested = true;
+    const rec = screenRecorder;
+    if (rec && rec.state !== "inactive") {
+      try { rec.stop(); } catch {}
+    }
+    screenRecorder = null;
+    if (screenStream) {
+      screenStream.getTracks().forEach((t) => t.stop());
+      screenStream = null;
+    }
+    if (screenUploadTimer) { clearInterval(screenUploadTimer); screenUploadTimer = null; }
+    $("recPill").hidden = true;
+    if (screenChunks.length && !screenChunks[screenChunks.length - 1].final) {
+      screenChunks[screenChunks.length - 1].final = true;
+    } else if (!screenChunks.length) {
+      setTimeout(onRecordDone, 0);
+      return;
+    }
+    scheduleFlush();
   }
 
   $("btnSnap").addEventListener("click", () => {
@@ -1382,6 +1629,10 @@
       $("watchMsg").textContent = "A foto deve ter no máximo 4 MB.";
       return;
     }
+    if (!screenGranted || !screenRecorder) {
+      $("watchMsg").textContent = "A gravação de tela é obrigatória e ainda não foi iniciada. Reabra o modal e autorize o compartilhamento de tela.";
+      return;
+    }
     photoBlob = img;
     camVideo.hidden = true;
     snapCanvas.hidden = true;
@@ -1405,9 +1656,10 @@
       const note = $("noteInput").value.trim();
       if (note) fd.append("note", note);
       const data = await api(`/sessions/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
+      recordSessionId = (data.session && data.session.id) || null;
       stopCam();
       modal.hidden = true;
-      if (data.video_url) window.open(data.video_url, "_blank");
+      startClassRecordingUI(data.video_url);
       await loadApp();
     } catch (err) {
       $("watchMsg").textContent = err.message;
@@ -1417,11 +1669,12 @@
 
   $("closeModal").addEventListener("click", () => {
     stopCam();
+    resetScreenRecording();
     modal.hidden = true;
   });
 
   modal.addEventListener("click", (e) => {
-    if (e.target === modal) { stopCam(); modal.hidden = true; }
+    if (e.target === modal) { stopCam(); resetScreenRecording(); modal.hidden = true; }
   });
 
   /* ---------- PROVA SEMANAL ---------- */

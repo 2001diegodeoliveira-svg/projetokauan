@@ -7,7 +7,8 @@ import {
   getWeekStats,
   listProvasForAdmin,
   listSessions,
-  listStudents
+  listStudents,
+  getSessionRecordingData
 } from "../database.js";
 
 const router = Router();
@@ -46,6 +47,23 @@ router.get("/students/:id", requireAdmin, asyncHandler(async (req, res) => {
   const sessions = await listSessions(id);
   const provas = await listProvasForAdmin(id);
   return res.json({ student, weeks, sessions, provas });
+}));
+
+router.get("/sessions/:id/recording", requireAdmin, asyncHandler(async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Id de sessão inválido" });
+  }
+  const rec = await getSessionRecordingData(id);
+  if (!rec) {
+    return res.status(404).json({ error: "Gravação não encontrada" });
+  }
+  if (!rec.recording_data) {
+    return res.status(404).json({ error: "Esta sessão não possui gravação de tela" });
+  }
+  res.set("Content-Type", rec.recording_mime || "video/webm");
+  res.set("Cache-Control", "private, max-age=86400");
+  return res.send(rec.recording_data);
 }));
 
 export default router;
