@@ -764,6 +764,13 @@
   let screenUploadTimer = null;
   let recordingElapsedSec = 0;
   let recGen = 0;
+  let recCanvas = null;
+  let recCanvasCtx = null;
+  let recCanvasStream = null;
+  let recDrawTimer = null;
+  let recSourcesHost = null;
+  let screenVid = null;
+  let camVid = null;
 
   /* Estado das provas semanais */
   let currentProvas = [];
@@ -1275,6 +1282,10 @@
   let facingMode = "user";
 
   function openWatchModal(id, videoUrl) {
+    if (recordingClassActive) {
+      showBanner("Conclua a aula em andamento (botão \"Concluir aula\") antes de registrar outra.", "err");
+      return;
+    }
     watchTaskId = id;
     photoBlob = null;
     camReady = false;
@@ -1313,13 +1324,12 @@
         $("btnSnap").disabled = true;
         return;
       }
-      $("watchMsg").textContent = "Solicitando permissão da câmera e da gravação de tela...";
+      $("watchMsg").textContent = "Solicitando permissão da câmera e do compartilhamento de tela...";
       try {
         screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: { ideal: 12 } },
           audio: false
         });
-        startScreenRecorder();
         screenGranted = true;
       } catch (err) {
         handleScreenError(err);
@@ -1328,7 +1338,7 @@
     }
     if (screenGranted) {
       $("recStatus").hidden = false;
-      $("recStatus").textContent = "● Gravando sua tela...";
+      $("recStatus").textContent = "Compartilhamento liberado. Ao tirar a foto, a gravação (tela + câmera) é iniciada.";
     }
     try {
       camStream = await navigator.mediaDevices.getUserMedia({
@@ -1339,7 +1349,7 @@
       await camVideo.play().catch(() => {});
       camReady = true;
       $("btnSnap").disabled = false;
-      $("watchMsg").textContent = screenGranted ? "● Gravando sua tela. Tire a foto para registrar." : "";
+      $("watchMsg").textContent = screenGranted ? "Compartilhamento liberado. Tire a foto para iniciar a gravação." : "";
       updateFlipButton();
     } catch (err) {
       if (!screenActive) stopScreenRecording(true);
@@ -1355,12 +1365,72 @@
     return "";
   }
 
-  function startScreenRecorder() {
+  function ensureRecSources() {
+    if (recSourcesHost) {
+      screenVid.srcObject = screenStream;
+      camVid.srcObject = camStream || null;
+      return;
+    }
+    recSourcesHost = document.createElement("div");
+    recSourcesHost.style.cssText = "position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden;pointer-events:none;";
+    screenVid = document.createElement("video");
+    screenVid.muted = true; screenVid.playsInline = true; screenVid.autoplay = true;
+    camVid = document.createElement("video");
+    camVid.muted = true; camVid.playsInline = true; camVid.autoplay = true;
+    recSourcesHost.appendChild(screenVid);
+    recSourcesHost.appendChild(camVid);
+    document.body.appendChild(recSourcesHost);
+    screenVid.srcObject = screenStream;
+    camVid.srcObject = camStream || null;
+    screenVid.play().catch(() => {});
+    camVid.play().catch(() => {});
+  }
+
+  function drawComboFrame() {
+    if (!recCanvasCtx || !recCanvas) return;
+    const w = recCanvas.width, h = recCanvas.height;
+    const ctx = recCanvasCtx;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+    if (screenVid && screenVid.videoWidth) {
+      ctx.drawImage(screenVid, 0, 0, w, h);
+    }
+    if (camVid && camVid.srcObject && camVid.videoWidth) {
+      const pipW = Math.max(96, Math.round(w * 0.26));
+      const pipH = Math.round(pipW * (camVid.videoHeight / camVid.videoWidth));
+      const px = w - pipW - 12;
+      const py = h - pipH - 12;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(px - 3, py - 3, pipW + 6, pipH + 6);
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fill();
+      ctx.translate(px + pipW, py);
+      ctx.scale(-1, 1);
+      ctx.drawImage(camVid, 0, 0, pipW, pipH);
+      ctx.restore();
+    }
+  }
+
+  function startComboRecording() {
+    if (screenRecorder) return;
     if (!screenStream || typeof MediaRecorder === "undefined") return;
+    ensureRecSources();
+    const track = screenStream.getVideoTracks()[0];
+    const settings = track && track.getSettings ? track.getSettings() : {};
+    const w = settings.width || 1280;
+    const h = settings.height || 720;
+    recCanvas = document.createElement("canvas");
+    recCanvas.width = w;
+    recCanvas.height = h;
+    recCanvasCtx = recCanvas.getContext("2d");
+    recCanvasStream = recCanvas.captureStream(12);
+    drawComboFrame();
+    recDrawTimer = setInterval(drawComboFrame, 80);
     const mime = pickRecorderMime();
-    const opts = { videoBitsPerSecond: 350000 };
+    const opts = { videoBitsPerSecond: 450000 };
     if (mime) opts.mimeType = mime;
-    const rec = new MediaRecorder(screenStream, opts);
+    const rec = new MediaRecorder(recCanvasStream, opts);
     const myGen = recGen;
     rec.ondataavailable = (e) => {
       if (myGen !== recGen) return;
@@ -1372,6 +1442,9 @@
     rec.onerror = () => {};
     try { rec.start(10000); } catch { try { rec.start(); } catch {} }
     screenRecorder = rec;
+    $("recStatus").hidden = false;
+    $("recStatus").textContent = "● Gravando tela + câmera...";
+    $("watchMsg").textContent = "Gravação iniciada. Confirme para abrir a aula.";
   }
 
   function handleScreenError(err) {
@@ -1445,6 +1518,13 @@
       try { rec.stop(); } catch {}
     }
     screenRecorder = null;
+    if (recDrawTimer) { clearInterval(recDrawTimer); recDrawTimer = null; }
+    if (recCanvasStream) {
+      try { recCanvasStream.getTracks().forEach((t) => t.stop()); } catch {}
+      recCanvasStream = null;
+    }
+    recCanvas = null;
+    recCanvasCtx = null;
     if (screenStream) {
       screenStream.getTracks().forEach((t) => t.stop());
       screenStream = null;
@@ -1533,10 +1613,18 @@
       try { rec.stop(); } catch {}
     }
     screenRecorder = null;
+    if (recDrawTimer) { clearInterval(recDrawTimer); recDrawTimer = null; }
+    if (recCanvasStream) {
+      try { recCanvasStream.getTracks().forEach((t) => t.stop()); } catch {}
+      recCanvasStream = null;
+    }
+    recCanvas = null;
+    recCanvasCtx = null;
     if (screenStream) {
       screenStream.getTracks().forEach((t) => t.stop());
       screenStream = null;
     }
+    stopCam();
     if (screenUploadTimer) { clearInterval(screenUploadTimer); screenUploadTimer = null; }
     $("recPill").hidden = true;
     if (screenChunks.length && !screenChunks[screenChunks.length - 1].final) {
@@ -1550,6 +1638,7 @@
 
   $("btnSnap").addEventListener("click", () => {
     if (!camStream || !camReady) { startCam(); return; }
+    startComboRecording();
     const w = camVideo.videoWidth;
     const h = camVideo.videoHeight;
     if (!w || !h) {
@@ -1629,11 +1718,12 @@
       $("watchMsg").textContent = "A foto deve ter no máximo 4 MB.";
       return;
     }
-    if (!screenGranted || !screenRecorder) {
-      $("watchMsg").textContent = "A gravação de tela é obrigatória e ainda não foi iniciada. Reabra o modal e autorize o compartilhamento de tela.";
+    if (!screenGranted) {
+      $("watchMsg").textContent = "A gravação de tela é obrigatória e ainda não foi liberada. Reabra o modal e autorize o compartilhamento de tela.";
       return;
     }
     photoBlob = img;
+    startComboRecording();
     camVideo.hidden = true;
     snapCanvas.hidden = true;
     photoPreview.src = URL.createObjectURL(img);
@@ -1646,6 +1736,10 @@
 
   $("btnConfirmWatch").addEventListener("click", async () => {
     if (!photoBlob) return;
+    if (!screenRecorder) {
+      $("watchMsg").textContent = "A gravação de tela não foi iniciada. Refira a foto para iniciar a gravação.";
+      return;
+    }
     const btn = $("btnConfirmWatch");
     btn.disabled = true;
     $("watchMsg").textContent = "Enviando foto...";
@@ -1657,7 +1751,6 @@
       if (note) fd.append("note", note);
       const data = await api(`/sessions/tasks/${watchTaskId}/watch`, { method: "POST", body: fd });
       recordSessionId = (data.session && data.session.id) || null;
-      stopCam();
       modal.hidden = true;
       startClassRecordingUI(data.video_url);
       await loadApp();
